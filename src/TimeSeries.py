@@ -458,7 +458,7 @@ class TimeSeries:
         if not valid_trend_type:
             print("Trend type not understood. Options are 'linear' or 'quadratic'.")
             print('Defaulting to linear trend')
-            trend_type == 'linear'
+            trend_type = 'linear'
 
         # Get power spectrum associated with each segment
         autospec = []
@@ -619,8 +619,9 @@ class TimeSeries:
                             
     # ***Calculate the non-Welch spectral window in the frequency domain***
     #    "window function" in astronomer parlance
-    def spectral_window(self, plot=True, outfile="None"):
+    def spectral_window(self, plot=True, yscale='log10', outfile="None"):
         # Set plot=False to turn off plotting
+        # For y-axis scale, choices are 'log10' or 'linear'
         # To save results, set the outfile keyword to the desired name of the output file
         try:
             no_power = (self.power is None)
@@ -629,6 +630,10 @@ class TimeSeries:
         except ValueError:
             print("You must estimate the power spectrum with pow_FT() before computing the spectral window.")
             return
+        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
+        if not valid_y:      
+            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
+            yscale='log10'
         winfunc = np.abs(fft(self.t, self.win_coeffs, self.fgrid))**2
         winfunc_norm = np.sum(winfunc * self.powfgrid[1])
         # winfunc /= np.max(winfunc)
@@ -640,7 +645,10 @@ class TimeSeries:
         print('Half bandwidth:', f"{bw:.6f}")
         if plot:
             plt.figure(figsize=(9,5))
-            plt.semilogy(self.fgrid, winfunc, lw=0.7)
+            if (yscale == 'log10'):
+                plt.semilogy(self.fgrid, winfunc, lw=0.7)
+            else:
+                plt.plot(self.fgrid, winfunc, lw=0.7)
             plt.xlabel('Frequency')
             plt.ylabel('Power')
             plt.title('Spectral window: ' + self.window)
@@ -660,8 +668,9 @@ class TimeSeries:
 
 
     # ***Calculate the spectral window of the Welch's estimator***
-    def spectral_window_Welch(self, plot=True, outfile="None"):
+    def spectral_window_Welch(self, plot=True, yscale='log10', outfile="None"):
         # Compute the average spectral window of the Welch's estimator
+        # For y-axis scale, choices are 'log10' or 'linear'
         # If plot=True, you will get a plot of the spectral window
         # To save the spectral window, set outfile keyword to desired filename
         try:
@@ -671,6 +680,10 @@ class TimeSeries:
         except ValueError:
             print("No Welch's power spectrum - call Welch_powspec() first")
             return
+        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
+        if not valid_y:      
+            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
+            yscale='log10'
         seg_windows = []
         for i in range(self.Nseg):
             sg = range(self.segments[i,0], self.segments[i,1])
@@ -695,7 +708,10 @@ class TimeSeries:
         print('Half bandwidth:', f"{bw:.6f}")
         if plot:
             plt.figure(figsize=(9,5))
-            plt.semilogy(self.Welch_fgrid, self.Welch_window_function, lw=0.7)
+            if (yscale == 'log10'):
+                plt.semilogy(self.Welch_fgrid, self.Welch_window_function, lw=0.7)
+            else:
+                plt.plot(self.Welch_fgrid, self.Welch_window_function, lw=0.7)
             plt.xlabel('Frequency')
             plt.ylabel('Power')
             plt.title('Welch average spectral window') 
@@ -740,9 +756,11 @@ class TimeSeries:
                       
         
     # ***Plot the power spectrum***
-    def powplot(self, show_thresholds=True, Welch=False, title=r"$\hat{S}(f)$", vlines=[], lw=0.8):
+    def powplot(self, show_thresholds=True, Welch=False, yscale='log10', title=r"$\hat{S}(f)$", vlines=[], lw=0.8):
         # Set show_thresholds=True to show bootstrap false alarm thresholds
         # use title keyword to change the plot title
+        # set Welch=True to plot the Welch's power spectrum; default is to plot Lomb-Scargle-like periodogram
+        # choices for y-axis scale are 'log10' and 'linear'
         # use vlines keyword to add vertical lines to the plot
         # use lw keyword to change linewidth
         # assumes white noise
@@ -753,6 +771,10 @@ class TimeSeries:
         except ValueError:
             print("Compute a standard or Welch's periodogram with pow_FT() or Welch_powspec() before plotting")
             return
+        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
+        if not valid_y:      
+            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
+            yscale='log10'
         if (Welch and (self.Welch_pow is not None)):
             x = self.Welch_powgrid
             y = self.Welch_pow
@@ -770,7 +792,10 @@ class TimeSeries:
                 if (self.N_bootstrap >= 10000):
                     f01 = self.false_alarm_01
         plt.figure(figsize=(9,5))
-        plt.semilogy(x[1:], y[1:], color='mediumblue', lw=lw)
+        if (yscale == 'log10'):
+            plt.semilogy(x[1:], y[1:], color='mediumblue', lw=lw)
+        else:
+            plt.plot(x[1:], y[1:], color='mediumblue', lw=lw)
         if 'f01' in locals():
             plt.axhline(f01, color='crimson', ls=':', label='bootstrap 0.1% FAP')
         if 'f5' in locals():

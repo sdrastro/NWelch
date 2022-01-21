@@ -365,7 +365,7 @@ class Bivariate:
             
             
 # ***Plot a Welch's periodogram***
-    def Welch_pow_plot(self, x_or_y='x', show_boot_thresholds=True, vlines=[], lw=0.8):
+    def Welch_pow_plot(self, x_or_y='x', show_boot_thresholds=True, yscale='log10', vlines=[], lw=0.8):
         # x_or_y='x' plots x(t) Welch's periodogram; x_or_y='y' plots y(t) Welch's periodogram
         # set show_boot_thresholds=True to plot the bootstrap false alarm thresholds
         try:
@@ -384,10 +384,10 @@ class Bivariate:
             return
         if (x_or_y == 'x'):
             self.x_series.powplot(show_thresholds=show_boot_thresholds, \
-             Welch=True, title=r"$\widehat{S}_{x}(f)$", vlines=vlines, lw=lw)
+             Welch=True, title=r"$\widehat{S}_{x}(f)$", yscale=yscale, vlines=vlines, lw=lw)
         else:
             self.y_series.powplot(show_thresholds=show_boot_thresholds, \
-             Welch=True, title=r"$\widehat{S}_{y}(f)$", vlines=vlines, lw=lw)
+             Welch=True, title=r"$\widehat{S}_{y}(f)$", yscale=yscale, vlines=vlines, lw=lw)
         
 
 # ***Plot the cross-spectrum***        

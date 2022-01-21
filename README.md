@@ -29,6 +29,9 @@ Contact: sdr [at] udel [dot] edu
 
 Packages required: numpy, matplotlib, scipy, copy, [resample](https://pypi.org/project/resample/), [finufft](https://finufft.readthedocs.io/en/latest/index.html) 
 
+Recommended reading order for demo notebooks: 1.
+demo/TimeSeries\_demo.ipynb, 2. GJ581/GJ581\_coherence.ipynb, 3. aCenB/aCenB\_coherence\_linear.ipynb
+
 ---
 
 ## A note about finufft
