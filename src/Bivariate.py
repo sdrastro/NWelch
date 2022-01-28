@@ -477,9 +477,9 @@ class Bivariate:
                  "\nTrend type: " + self.trend_type + \
                  "\nWindow applied: {}".format(self.window)
         # Bandwidth info
-        header = header + "\nSegment-averaged 6-dB bandwidth: {}".format(self.x_series.Welch_band)
+        header = header + "\nSegment-averaged -6dB main lobe half width: {}".format(self.x_series.Welch_band)
         # Rayleigh resolution
-        header = header + "\nRayleigh resolution: {}".format(self.x_series.Welch_Rayleigh)
+        header = header + "\nRayleigh resolution (1/2 best-case resolution limit): {}".format(self.x_series.Welch_Rayleigh)
         # Analytical FAPs
         header = header + "\nC2xy 5% FAP (analytical): {}".format(self.coh_prob_5) + \
                           "\nC2xy 1% FAP (analytical): {}".format(self.coh_prob_1) + \

@@ -379,11 +379,11 @@ class TimeSeries:
         Nyq_medians = [] # Median Nyquist frequency from each segment
         Rayleighs = [] # Rayleigh resolutions from each segment
         if (window == 'BlackmanHarris'):
-            B_6dB = 2.72 # scaled 6 dB Blackman-Harris window bandwidth
+            B_6dB = 2.72 # scaled 6 dB Blackman-Harris window main lobe half width
         elif (window == 'KaiserBessel'):
-            B_6dB = 2.39 # scaled Kaiser-Bessel window bandwidth
+            B_6dB = 2.39 # scaled Kaiser-Bessel window main lobe half width
         else:
-            B_6dB = 1.21 # scaled rectangular window bandwidth
+            B_6dB = 1.21 # scaled rectangular window main lobe half width
         bandwidths = [] # Real bandwidth of each segment's taper
         self.s_weights = np.zeros(self.Nseg) # Segments will be weighted by number of data points they cover
         for i in range(self.Nseg):
@@ -419,9 +419,9 @@ class TimeSeries:
         print("Segment start and end points:", self.segments)
         print("Effective number of segments:", f"{self.Nseg_eff:.6f}")
         print("Frequency grid spacing:", f"{self.Welch_powgrid[1]-self.Welch_powgrid[0]:.6f}")
-        print("Minimum 6-dB bandwidth:", f"{np.min(bandwidths):.6f}")
-        print("Mean 6-dB bandwidth, resolution limit:", f"{self.Welch_band:.6f}")
-        print("Best achievable Rayleigh resolution:", f"{self.Welch_Rayleigh:.6f}")
+        print("Minimum 6-dB main lobe half width:", f"{np.min(bandwidths):.6f}")
+        print("Mean 6-dB main lobe half width (1/2 resolution limit):", f"{self.Welch_band:.6f}")
+        print("Best achievable Rayleigh limit (1/2 best-case resolution limit):", f"{self.Welch_Rayleigh:.6f}")
 
         if plot_windows:
             plt.figure(figsize=(8,5))
@@ -663,7 +663,7 @@ class TimeSeries:
             except TypeError:
                 print("Bad output file name - no results saved")
                 return
-            header = "Spectral window\nMeasured half bandwidth: {}".format(bw) + "\nfrequency power"
+            header = "Spectral window\nMeasured half main lobe width: {}".format(bw) + "\nfrequency power"
             np.savetxt(outfile, np.column_stack((self.fgrid, winfunc)), header=header)
 
 
@@ -726,7 +726,7 @@ class TimeSeries:
             except TypeError:
                 print("Bad output file name - no results saved")
                 return
-            header = "Welch's spectral window\nMeasured half bandwidth: {}".format(bw)+ "\nfrequency power"
+            header = "Welch's spectral window\nMeasured half main lobe width: {}".format(bw)+ "\nfrequency power"
             np.savetxt(outfile, np.column_stack((self.Welch_fgrid, \
                    self.Welch_window_function)), header=header)
     
@@ -862,7 +862,7 @@ class TimeSeries:
         header = "Welch's periodogram" + \
                  "\nChosen Nyquist frequency: {}".format(self.Welch_fgrid[-1]) + \
                  "\nRayleigh resolution: {}".format(self.Welch_Rayleigh) + \
-                 "\n6-dB bandwidth, limiting resolution: {}".format(self.Welch_band) + \
+                 "\n6-dB main lobe half width (1/2 limiting resolution): {}".format(self.Welch_band) + \
                  "\nActual number of segments: {}".format(self.Nseg) + \
                  "\nEffective number of segments: {}".format(self.Nseg_eff) + \
                  "\nSegment start and end points: {}".format(self.segments.tolist()) + \
