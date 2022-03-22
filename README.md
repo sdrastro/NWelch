@@ -42,7 +42,13 @@ folder.
 
 ---
 
-## A note about finufft
+## Notes about finufft
+
+finufft v2.0.4 (Release 5) was deployed on 13 January 2022. The [changelog](https://finufft.readthedocs.io/en/latest/changelog.html) has the following comment:
+
+sped up float32 1d type 3 by 20% by using float32 cos()...
+
+As a result of the change, some users are reporting that nufft1d3 in finufft v2.0.4 is throwing type mismatches between float32, float64, and complex128. Until the type mismatch issue in the underlying C code is resolved, I recommend installing [Release 4](https://github.com/flatironinstitute/finufft/releases), dated 22 April 2021.
 
 Installation on a Mac can be tricky, as until very recently Apple disabled multithreading support in the C compiler bundled with Xcode. This [StackOverflow entry](https://stackoverflow.com/questions/58344183/how-can-i-install-openmp-on-my-new-macbook-pro-with-mac-os-catalina) suggests a couple of hacks that will get you a working version of libomp; I went the gcc route. After compiling finufft from source with gcc9, I then needed to invoke 
 
