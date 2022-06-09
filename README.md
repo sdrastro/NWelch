@@ -40,6 +40,8 @@ The GJ 3998 analysis has example phase plots. An analysis of
 alpha Cen B with quadratic detrending is included in the aCenB
 folder.
 
+If you use NWelch in your research, please cite [Magnitude-squared Coherence: A Powerful Tool for Disentangling Doppler Planet Discoveries from Stellar Activity](https://ui.adsabs.harvard.edu/abs/2022AJ....163..169D/abstract), Dodson-Robinson, S. E.; Ramirez Delgado, V.; Harrell, J.; Haley, C. L. 2022, Astronomical Journal, Volume 163, Issue 4, id.169
+
 ---
 
 ## Notes about finufft
