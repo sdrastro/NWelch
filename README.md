@@ -43,6 +43,7 @@ folder.
 If you use NWelch in your research, please cite [Magnitude-squared Coherence: A Powerful Tool for Disentangling Doppler Planet Discoveries from Stellar Activity](https://ui.adsabs.harvard.edu/abs/2022AJ....163..169D/abstract), Dodson-Robinson, S. E.; Ramirez Delgado, V.; Harrell, J.; Haley, C. L. 2022, Astronomical Journal, Volume 163, Issue 4, id.169
 
 Please feel free to contact me with any questions about NWelch or finufft installation, or NWelch operation.
+
 ---
 
 [![DOI](https://zenodo.org/badge/435631370.svg)](https://zenodo.org/badge/latestdoi/435631370)
