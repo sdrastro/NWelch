@@ -62,7 +62,7 @@ class TimeSeries:
             return
         ind = np.argsort(t) # sort by time
         self.t = t[ind]
-        self.obs = obs[ind]
+        self.obs = obs[ind].astype(complex) # nufft inputs must be complex
         if (self.t[0] != 0.0): # shift so time series starts at t=0
             self.t = self.t - self.t[0]
         self.N = len(self.t)
@@ -96,7 +96,7 @@ class TimeSeries:
         # Use keywords xlabel and ylabel to change the default
         #     axis labels
         plt.figure(figsize=(7,5))
-        plt.scatter(self.t, self.obs, color='k', edgecolor='k', alpha=0.6)
+        plt.scatter(self.t, self.obs.real, color='k', edgecolor='k', alpha=0.6)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         
@@ -199,9 +199,9 @@ class TimeSeries:
         self.trend_type = trend_type
         if self.trend:
             if trend_type == 'linear':
-                trendcurve = np.poly1d(np.polyfit(self.t, data, 1))
+                trendcurve = np.poly1d(np.polyfit(self.t, data.real, 1))
             else:
-                trendcurve = np.poly1d(np.polyfit(self.t, data, 2))
+                trendcurve = np.poly1d(np.polyfit(self.t, data.real, 2))
             data = data - trendcurve(self.t)
         detrended_data = data
 
@@ -224,7 +224,7 @@ class TimeSeries:
         if norm:
             # Normalize: Sum_i (Power_i * df) = variance(data)
             # powfgrid[1] = df
-            norm = np.var(data) / np.sum((self.powfgrid[1]) * self.power)
+            norm = np.var(data.real) / np.sum((self.powfgrid[1]) * self.power)
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
@@ -475,9 +475,9 @@ class TimeSeries:
             self.Welch_trend_type = trend_type
             if self.Welch_trend:
                 if self.Welch_trend_type == 'linear':
-                    trendcurve = np.poly1d(np.polyfit(time, data, 1))
+                    trendcurve = np.poly1d(np.polyfit(time, data.real, 1))
                 else:
-                    trendcurve = np.poly1d(np.polyfit(time, data, 2))
+                    trendcurve = np.poly1d(np.polyfit(time, data.real, 2))
                 data = data - trendcurve(time)
         
             # Apply window
@@ -494,7 +494,7 @@ class TimeSeries:
             # Compute the power spectrum
             autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf:])**2)
 
-        # The Welch's periodogram                  
+        # The Welch's power spectrum estimate
         self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
         
         # Normalize the periodogram with Parseval's theorem: Sum(df * power density_i) = time domain variance
@@ -634,7 +634,7 @@ class TimeSeries:
         if not valid_y:      
             print("Invalid setting for plot y-axis scale. Defaulting to log10.")
             yscale='log10'
-        winfunc = np.abs(fft(self.t, self.win_coeffs, self.fgrid))**2
+        winfunc = np.abs(fft(self.t, self.win_coeffs.astype(complex), self.fgrid))**2
         winfunc_norm = np.sum(winfunc * self.powfgrid[1])
         # winfunc /= np.max(winfunc)
         winfunc /= winfunc_norm
@@ -696,7 +696,7 @@ class TimeSeries:
                 win_coeffs = np.ones(len(sg))
 
             seg_windows.append(self.s_weights[i] * \
-                     np.abs(fft(time, win_coeffs, self.Welch_fgrid))**2)
+                     np.abs(fft(time, win_coeffs.astype(complex), self.Welch_fgrid))**2)
         Welch_window_function = np.mean(np.array(seg_windows), axis=0) / \
                      np.sum(self.s_weights)
         winfunc_norm = np.sum(Welch_window_function * self.Welch_powgrid[1])
@@ -843,7 +843,7 @@ class TimeSeries:
         np.savetxt(filename, output, fmt='%.8e', delimiter=',', header=header)
 
 
-    # ***Save Welch's periodogram***
+    # ***Save Welch's power spectrum estimate***
     def save_Welch(self, filename):
         try:
             no_results = (self.Welch_pow is None)
@@ -859,7 +859,7 @@ class TimeSeries:
         except TypeError:
             print("Bad output file name - no results saved")
             return
-        header = "Welch's periodogram" + \
+        header = "Welch's power spectrum estimate" + \
                  "\nChosen Nyquist frequency: {}".format(self.Welch_fgrid[-1]) + \
                  "\nRayleigh resolution: {}".format(self.Welch_Rayleigh) + \
                  "\n6-dB main lobe half width (1/2 limiting resolution): {}".format(self.Welch_band) + \

@@ -165,9 +165,9 @@ class Bivariate:
         except ValueError:
             print("You must call Welch_coherence_powspec() before performing Siegel's test")
             return
-        print("Siegel's test on Gxx:")
+        print("Siegel's test on Sxx:")
         self.x_series.Siegel_test(Welch=True, tri=tri)
-        print("Siegel's test on Gyy:")
+        print("Siegel's test on Syy:")
         self.y_series.Siegel_test(Welch=True, tri=tri)
         
         
@@ -487,13 +487,13 @@ class Bivariate:
         # Bootstrap FAP info for periodograms
         header = header + "\nNumber of bootstrap iterations: {}".format(self.N_coh_bootstrap)
         if (self.N_coh_bootstrap >= 100):
-            header = header + "\nGxx 5% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_5) + \
-                              "\nGxx 1% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_1) + \
-                              "\nGyy 5% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_5) + \
-                              "\nGyy 1% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_1)
+            header = header + "\nSxx 5% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_5) + \
+                              "\nSxx 1% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_1) + \
+                              "\nSyy 5% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_5) + \
+                              "\nSyy 1% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_1)
             if (self.N_coh_bootstrap >= 10000):
-                header = header + "\nGxx 0.1% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_01) + \
-                                  "\nGyy 0.1% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_01)
+                header = header + "\nSxx 0.1% FAP (bootstrap): {}".format(self.xpow_Welch_false_alarm_01) + \
+                                  "\nSyy 0.1% FAP (bootstrap): {}".format(self.ypow_Welch_false_alarm_01)
         # Write everything out
         header = header + "\nfrequency,Welch_pow_x,Welch_pow_y,cross_real,cross_imag,phase,coh,coh_raw,coh_transformed"
         output = np.column_stack((self.pow_coh_grid, self.x_series.Welch_pow, \
