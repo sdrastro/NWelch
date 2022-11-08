@@ -42,24 +42,7 @@ folder.
 
 If you use NWelch in your research, please cite [Magnitude-squared Coherence: A Powerful Tool for Disentangling Doppler Planet Discoveries from Stellar Activity](https://ui.adsabs.harvard.edu/abs/2022AJ....163..169D/abstract), Dodson-Robinson, S. E.; Ramirez Delgado, V.; Harrell, J.; Haley, C. L. 2022, Astronomical Journal, Volume 163, Issue 4, id.169
 
----
-
-## Notes about finufft
-
-finufft v2.0.4 (Release 5) was deployed on 13 January 2022. The [changelog](https://finufft.readthedocs.io/en/latest/changelog.html) has the following comment:
-
-sped up float32 1d type 3 by 20% by using float32 cos()...
-
-As a result of the change, some users are reporting that nufft1d3 in finufft v2.0.4 is throwing type mismatches between float32, float64, and complex128. Until the type mismatch issue in the underlying C code is resolved, I recommend installing [Release 4](https://github.com/flatironinstitute/finufft/releases), dated 22 April 2021.
-
-Installation on a Mac can be tricky, as until very recently Apple disabled multithreading support in the C compiler bundled with Xcode. This [StackOverflow entry](https://stackoverflow.com/questions/58344183/how-can-i-install-openmp-on-my-new-macbook-pro-with-mac-os-catalina) suggests a couple of hacks that will get you a working version of libomp; I went the gcc route. After compiling finufft from source with gcc9, I then needed to invoke 
-
-import os
-
-os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
-
-in all code that uses finufft because for some reason python thinks there are multiple openmp libraries on my system. Since setting os.environ['KMP_DUPLICATE_LIB_OK'] = 'True' for multithread computations is an [unsupported, potentially unsafe workaround](https://stackoverflow.com/questions/20554074/sklearn-omp-error-15-when-fitting-models), all calls to the nufft1d3 function (NWelch's workhorse for calculating non-uniform FFTs) force a single-thread computation using the kewyord nthreads=1. The planet-search datasets for which NWelch was designed are rarely large enough for single-thread NFFTs to cause a huge slowdown. But if you have a Linux system with a working openmp library that gives you no problem installing finufft, you can probably speed up NWelch by editing the source code: remove os.environ['KMP_DUPLICATE_LIB_OK'] = 'True' from both Bivariate.py and TimeSeries.py, then remove nthreads=1 from the fft function defined at the top of TimeSeries.py. (For Linux machines or Macs with proper multithreading, there's no problem with leaving the source code alone; you just might have slightly slower NFFTs.) This software has been tested mostly on a Mac, with limited tests on Linux and Windows.
-
+Please feel free to contact me with any questions about NWelch or finufft installation, or NWelch operation.
 ---
 
 [![DOI](https://zenodo.org/badge/435631370.svg)](https://zenodo.org/badge/latestdoi/435631370)
