@@ -500,7 +500,7 @@ class TimeSeries:
         # Normalize the periodogram with Parseval's theorem: avg(df * power density_i) = time domain variance
         if norm:
             yy = np.concatenate(fft_input_data).ravel() 
-            xnorm = np.var(yy) * (len(y)-1) / \
+            xnorm = np.var(yy) * (len(yy)-1) / \
                     np.sum(self.Welch_powgrid[1] * self.Welch_pow)
             self.Welch_pow *= xnorm
         # Done
