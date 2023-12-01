@@ -224,7 +224,7 @@ class TimeSeries:
         if norm:
             # Normalize: Sum_i (Power_i * df) = variance(data)
             # powfgrid[1] = df
-            norm = np.var(data.real) / np.sum((self.powfgrid[1]) * self.power)
+            norm = np.var(data.real)*(self.N-1) / np.sum((self.powfgrid[1]) * self.power)
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
@@ -497,9 +497,11 @@ class TimeSeries:
         # The Welch's power spectrum estimate
         self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
         
-        # Normalize the periodogram with Parseval's theorem: Sum(df * power density_i) = time domain variance
+        # Normalize the periodogram with Parseval's theorem: avg(df * power density_i) = time domain variance
         if norm:
-            xnorm = np.var(np.concatenate(fft_input_data).ravel()) / np.sum(self.Welch_powgrid[1] * self.Welch_pow)
+            yy = np.concatenate(fft_input_data).ravel() 
+            xnorm = np.var(yy) * (len(y)-1) /
+                    np.sum(self.Welch_powgrid[1] * self.Welch_pow)
             self.Welch_pow *= xnorm
         # Done
                             
