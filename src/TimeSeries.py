@@ -260,7 +260,7 @@ class TimeSeries:
             
             
     # ***Break the time series into segments in preparation for Welch's algorithm***
-    def segment_data(self, seg, Nyquist, oversample=6, window='None', plot_windows=False):
+    def segment_data(self, seg, Nyquist, oversample=6, window='None', plot_windows=False, quiet=False):
         # As above, Nyquist is the maximum frequency desired for the periodogram
         # window is type of window to apply to each segment: 'None' or 'BlackmanHarris' or 'KaiserBessel'
         # seg is either an integer that defines the number of 50% overlapping segments, or
@@ -270,6 +270,12 @@ class TimeSeries:
         # note: a segment defined as [0, 151] will actually include data points 0 through 150
         #    since python's ranges don't include the final element 
         #    (i.e. arr[0:4] = [arr[0], arr[1], arr[2], arr[3]] but arr[4] is left out)
+
+        # with quiet=False, the code will print out information about the resolution,
+        #     number of data points per segment, and effective number of independent segments.
+        #     It will also warn about Nyquist-like frequencies that may be too high and
+        #     segment overlapping.
+        #     Set quiet=True to turn off resolution/segment info and warnings.
         try:
             good_Nyquist = (Nyquist > 0)
             if not good_Nyquist:
@@ -321,7 +327,8 @@ class TimeSeries:
                 print("You must have at least 29 data points per segment -")
                 print("not a valid segmentation scheme")
                 return
-            print("Number of data points per segment:", nperseg)
+            if not quiet:
+                print("Number of data points per segment:", nperseg)
             segments = []
             for i in range(0,seg-1):
                 start = (i*nperseg) // 2
@@ -358,8 +365,9 @@ class TimeSeries:
             while (i < segments.shape[0]):
                 if (segments[i,0] < segments[i-1,1]):
                     overlap=True
-                    print("Segment overlap detected - assuming 50% overlap")
-                    print("If your segment overlap is far from 50%, consider defining non-overlapping segments")
+                    if not quiet:
+                        print("Segment overlap detected - assuming 50% overlap")
+                        print("If your segment overlap is far from 50%, consider defining non-overlapping segments")
                     break
                 i += 1
             if overlap:
@@ -397,14 +405,17 @@ class TimeSeries:
         self.Welch_band = np.sum(self.s_weights*bandwidths) / np.sum(self.s_weights)
         self.Welch_Rayleigh = np.min(Rayleighs)
 
+        '''
         # Check that user input Nyquist frequency is valid for all segments, adjust if necessary
         max_Nyq_possible = np.min(Nyq_medians)
         if (Nyquist > max_Nyq_possible):
-            print("Your Nyquist frequency is too high. Adjusting...")
             Nyquist = max_Nyq_possible
+            if not quiet:
+                print("Your Nyquist frequency is too high. Adjusting...")
+        '''
             
         # Build frequency grid for Welch's periodogram calculation
-        if (Nyquist > self.Nyq_meddt):
+        if (Nyquist > self.Nyq_meddt) and (not quiet):
             print("Warning: your requested Nyquist frequency is higher than the Nyquist")
             print("frequency associated with the median timestep. Make sure that makes")
             print("sense for your dataset.")
@@ -415,13 +426,14 @@ class TimeSeries:
         self.Welch_powgrid = self.Welch_fgrid[self.Welch_nf:]
         
         # Information for user
-        print("Number of segments:", self.Nseg)
-        print("Segment start and end points:", self.segments)
-        print("Effective number of segments:", f"{self.Nseg_eff:.6f}")
-        print("Frequency grid spacing:", f"{self.Welch_powgrid[1]-self.Welch_powgrid[0]:.6f}")
-        print("Minimum 6-dB main lobe half width:", f"{np.min(bandwidths):.6f}")
-        print("Mean 6-dB main lobe half width (1/2 resolution limit):", f"{self.Welch_band:.6f}")
-        print("Best achievable Rayleigh limit (1/2 best-case resolution limit):", f"{self.Welch_Rayleigh:.6f}")
+        if not quiet:
+            print("Number of segments:", self.Nseg)
+            print("Segment start and end points:", self.segments)
+            print("Effective number of segments:", f"{self.Nseg_eff:.6f}")
+            print("Frequency grid spacing:", f"{self.Welch_powgrid[1]-self.Welch_powgrid[0]:.6f}")
+            print("Minimum 6-dB main lobe half width:", f"{np.min(bandwidths):.6f}")
+            print("Mean 6-dB main lobe half width (1/2 resolution limit):", f"{self.Welch_band:.6f}")
+            print("Best achievable Rayleigh limit (1/2 best-case resolution limit):", f"{self.Welch_Rayleigh:.6f}")
 
         if plot_windows:
             plt.figure(figsize=(8,5))
