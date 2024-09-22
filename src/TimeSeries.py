@@ -460,11 +460,14 @@ class TimeSeries:
     # ***Perform a SINGLE Welch's power spectrum estimate***
     #    Use it either on the actual data, or on a scrambled dataset as part
     #      of bootstrap false alarm probability assessment
-    def Welch_powspec(self, trend=True, trend_type='linear', norm=True):
+    def Welch_powspec(self, trend=True, trend_type='linear', norm=True, mode='mean'):
         # set trend=True to detrend data is as in TimeSeries.pow_FT(), choose trend type
         # set norm=True to use Parseval's theorem to get the power spectral density normalization
         # set norm=False if normalization doesn't matter, or will take place in a different part
         #    of the code
+        # Default mode='mean' computes the Welch's power spectrum
+        #    estimate by averaging individual segment estimates;
+        #    mode='median' uses median of the segment estimates
         if not self.segmented:
             print("You must call segment_data() before computing a Welch's power spectrum estimate")
             return
@@ -510,7 +513,15 @@ class TimeSeries:
             autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf+1:])**2)
 
         # The Welch's power spectrum estimate
-        self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
+        if mode == 'mean':
+            self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
+            self.mode = 'mean'
+        elif mode == 'median':
+            self.Welch_pow = np.median(np.array(autospec), axis=0) / np.sum(self.s_weights)
+            self.mode = 'median'
+        else:
+            print("Invalid power spectrum calculation mode. Choices are 'mean' or 'median'.")
+            return
         
         # Normalize the periodogram with Parseval's theorem:
         #   mean(df * power density_i) = time domain variance
@@ -559,7 +570,7 @@ class TimeSeries:
                 print("Iteration", i)
             perm = next(sampler)
             self.obs = obs_original[perm]
-            self.Welch_powspec(trend=self.Welch_trend)
+            self.Welch_powspec(trend=self.Welch_trend, mode=self.mode)
             highest_peaks[i] = np.max(self.Welch_pow)
         
         self.Welch_false_alarm_5 = np.quantile(highest_peaks, 0.95)
