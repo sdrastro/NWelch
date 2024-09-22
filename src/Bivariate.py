@@ -50,7 +50,7 @@ class Bivariate:
         self.N_red_noise = 0
 
 
-    def segment_data(self, seg, Nyquist, oversample=4, window='None', plot_windows=False):
+    def segment_data(self, seg, Nyquist, oversample=4, window='None', plot_windows=False, quiet=False):
         # As above, Nyquist is the maximum frequency desired for the periodogram
         # seg is either an integer that defines the number of 50% overlapping segments, or
         #    a 2-d numpy array giving the beginning and ending indices of each segment, i.e.
@@ -59,8 +59,9 @@ class Bivariate:
         # note: a segment defined as [0, 151] will actually include data points 0 through 150
         #    since python's ranges don't include the final element 
         #    (i.e. arr[0:4] = [arr[0], arr[1], arr[2], arr[3]] but arr[4] is left out)
+        # Set quiet=True to squelch printout of segment and resolution information
         self.x_series.segment_data(seg, Nyquist, oversample=oversample, \
-             window=window, plot_windows=plot_windows)
+             window=window, plot_windows=plot_windows, quiet=quiet)
         try:
             if not self.x_series.segmented:
                 raise ValueError
@@ -68,7 +69,7 @@ class Bivariate:
             print("Segmentation failed - try again.")
             return
         self.y_series.segment_data(seg, Nyquist, oversample=oversample, \
-             window=window, plot_windows=False)
+             window=window, plot_windows=False, quiet=True)
         self.segmented = True
         self.Nseg = self.x_series.Nseg
         self.Nseg_eff = self.x_series.Nseg_eff
@@ -115,8 +116,8 @@ class Bivariate:
             x_seg.pow_FT(window=self.window, trend=trend, trend_type=trend_type, N_bootstrap=0, quiet=True, norm=False)
             y_seg.pow_FT(window=self.window, trend=trend, trend_type=trend_type, N_bootstrap=0, quiet=True, norm=False)
             # Get the segment cross-spectrum
-            xycross.append(self.x_series.s_weights[i] * np.conj(x_seg.ft[x_seg.nf:]) * \
-                           y_seg.ft[y_seg.nf:])
+            xycross.append(self.x_series.s_weights[i] * np.conj(x_seg.ft[x_seg.nf+1:]) * \
+                           y_seg.ft[y_seg.nf+1:])
                            
         # Order of operations for coherence numerator: mean -> absolute value -> square
         self.cross = np.mean(np.array(xycross), axis=0)
@@ -173,7 +174,7 @@ class Bivariate:
         
 # ***Assuming white noise, use bootstrap to calculate
 #    false-alarm thresholds for Welch's periodograms and coherence***
-    def Welch_coherence_powspec_bootstrap(self, N_coh_bootstrap=10000, save_noise=False):
+    def Welch_coherence_powspec_bootstrap(self, N_coh_bootstrap=10000, save_noise=False, print_crossings=False):
         # N_coh_bootstrap is the number of bootstrap iterations for the false alarm threshold
         #    computation; set to a number <100 to turn off the bootstrap
         # set save_noise=True to save the array containing coherences of the randomly 
@@ -210,7 +211,7 @@ class Bivariate:
         ncrossperR_01_original = copy.deepcopy(self.ncrossperR_01)
 
         self.N_coh_bootstrap = N_coh_bootstrap
-        N_coh_f = self.nf + 1
+        N_coh_f = self.nf
 
         coh_noise = np.zeros((N_coh_bootstrap, N_coh_f))
         coh_transformed_noise = np.zeros((N_coh_bootstrap, N_coh_f))
@@ -294,18 +295,19 @@ class Bivariate:
         self.ncrossperR_01_percentile = stats.percentileofscore(ncrossingsperR_boot_01, self.ncrossperR_01)
         
         # Print out threshold crossing information
-        print('\nMean number of false-alarm threshold crossings per Rayleigh resolution from bootstrap simulations:')
-        print('5% FAP:', f"{np.mean(ncrossingsperR_boot_5):.3f}")
-        print('1% FAP:', f"{np.mean(ncrossingsperR_boot_1):.3f}")
-        print('0.1% FAP:', f"{np.mean(ncrossingsperR_boot_01):.3f}")
-        print('\nNumber of false-alarm threshold crossings per Rayleigh resolution from actual data:')
-        print('5% FAP:', f"{self.ncrossperR_5:.3f}", 'crossings = ', f"{self.ncrossperR_5_percentile:.4f}", '%ile')
-        print('1% FAP:', f"{self.ncrossperR_1:.3f}", 'crossings = ', f"{self.ncrossperR_1_percentile:.4f}", '%ile')
-        print('0.1% FAP:', f"{self.ncrossperR_01:.3f}", 'crossings = ', f"{self.ncrossperR_5_percentile:.4f}", '%ile\n')
+        if print_crossings:
+            print('\nMean number of false-alarm threshold crossings per Rayleigh resolution from bootstrap simulations:')
+            print('5% FAP:', f"{np.mean(ncrossingsperR_boot_5):.3f}")
+            print('1% FAP:', f"{np.mean(ncrossingsperR_boot_1):.3f}")
+            print('0.1% FAP:', f"{np.mean(ncrossingsperR_boot_01):.3f}")
+            print('\nNumber of false-alarm threshold crossings per Rayleigh resolution from actual data:')
+            print('5% FAP:', f"{self.ncrossperR_5:.3f}", 'crossings = ', f"{self.ncrossperR_5_percentile:.4f}", '%ile')
+            print('1% FAP:', f"{self.ncrossperR_1:.3f}", 'crossings = ', f"{self.ncrossperR_1_percentile:.4f}", '%ile')
+            print('0.1% FAP:', f"{self.ncrossperR_01:.3f}", 'crossings = ', f"{self.ncrossperR_5_percentile:.4f}", '%ile\n')
               
 
 # ***Plot coherence***
-    def coh_plot(self, transformed=False, show_theoretical_thresholds=False, show_boot_thresholds=True, vlines=[], lw=0.8):
+    def coh_plot(self, transformed=True, show_theoretical_thresholds=False, show_boot_thresholds=True, vlines=[], lw=0.8):
         # set transformed=True to plot the arctanh-transformed version of coherence
         #    transformed=False will plot the non-transformed version
         # set show_theoretical_thresholds=True to put the
@@ -345,10 +347,11 @@ class Bivariate:
                 if (self.N_coh_bootstrap >= 10000):
                     boot01 = self.coh_boot_01
         plt.figure(figsize=(9,5))
-        plt.plot(self.pow_coh_grid, y, color="mediumblue", lw=lw)
-        plt.xlabel("Frequency")
-        plt.ylabel(ylabel)
-        plt.title("Coherence")
+        plt.plot(self.pow_coh_grid[1:], y[1:], color="mediumblue", lw=lw)
+        plt.xlabel(r"$f$", fontsize='x-large')
+        plt.ylabel(ylabel, fontsize='x-large')
+        plt.title("Magnitude-squared coherence")
+        plt.grid(color='0.85')
         if show_theoretical_thresholds:
             plt.axhline(prob5, color='darkorchid', label="analytical 5%", lw=0.7)
             plt.axhline(prob1, color='mediumspringgreen', label="analytical 1%", lw=0.7)
@@ -384,10 +387,10 @@ class Bivariate:
             return
         if (x_or_y == 'x'):
             self.x_series.powplot(show_thresholds=show_boot_thresholds, \
-             Welch=True, title=r"$\widehat{S}_{x}(f)$", yscale=yscale, vlines=vlines, lw=lw)
+             Welch=True, title=r"$\widehat{S}_{xx}(f)$", yscale=yscale, vlines=vlines, lw=lw)
         else:
             self.y_series.powplot(show_thresholds=show_boot_thresholds, \
-             Welch=True, title=r"$\widehat{S}_{y}(f)$", yscale=yscale, vlines=vlines, lw=lw)
+             Welch=True, title=r"$\widehat{S}_{yy}(f)$", yscale=yscale, vlines=vlines, lw=lw)
         
 
 # ***Plot the cross-spectrum***        
@@ -404,9 +407,11 @@ class Bivariate:
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(9,6))
         ax1.plot(self.fgrid, self.cross.real, color='dodgerblue', lw=lw)
         ax1.set_ylabel(r"$\Re( \mathcal{F}\{ x_t \star y_t \})$")
+        ax1.grid(color='0.85')
         ax2.plot(self.fgrid, self.cross.imag, color='firebrick', lw=lw)
         ax2.set_ylabel(r"$\Im( \mathcal{F}\{ x_t \star y_t \})$")
-        ax2.set_xlabel("Frequency")
+        ax2.set_xlabel(r"$f$", fontsize='x-large')
+        ax2.grid(color='0.85')
         for v in vlines:
             ax1.axvline(v, color='gray', linestyle=':')
             ax2.axvline(v, color='gray', linestyle=':')
@@ -450,9 +455,10 @@ class Bivariate:
         plt.plot(self.pow_coh_grid, self.phase, color='mediumblue', lw=0.8, ls=':')
         plt.scatter(self.pow_coh_grid[where_meaningful], self.phase[where_meaningful], \
                  color='mediumblue', label=r"Significant $\widehat{C}^2_{xy}(f)$", s=5)
-        plt.xlabel('Frequency')
-        plt.ylabel(r"$\widehat{\phi}_{xy}(f)$")
+        plt.xlabel(r"$f$", fontsize='x-large')
+        plt.ylabel(r"$\widehat{\phi}_{xy}(f)$", fontsize='x-large')
         plt.legend(loc="best")
+        plt.grid(color='0.85')
         for v in vlines:
             plt.axvline(v, color='gray', linestyle=':')
 
