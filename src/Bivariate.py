@@ -95,7 +95,7 @@ class Bivariate:
             print("Trend type not understood. Options are 'linear' or 'quadratic'.")
             print('Defaulting to linear trend')
             trend_type == 'linear'
-        
+
         # Get non-normalized Welch's autospectra for coherence denominator
         self.x_series.Welch_powspec(trend=trend, trend_type=trend_type, norm=False)
         self.y_series.Welch_powspec(trend=trend, trend_type=trend_type, norm=False)
