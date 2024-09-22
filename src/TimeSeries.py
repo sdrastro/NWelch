@@ -19,7 +19,7 @@ plt.rcParams.update({"font.size":16, "axes.labelsize":16, "font.family":"sans-se
 # time: observation times
 # data: observed data
 # freqs: desired frequency grid
-fft = lambda time, data, freqs: nufft1d3(2*np.pi*time, data, freqs, isign=-1, nthreads=1)
+nfft = lambda time, data, freqs: nufft1d3(2*np.pi*time, data, freqs, isign=-1, nthreads=1)
 
 # ***Minimum 4-term Blackman-Harris window***
 # time: observation times
@@ -99,6 +99,7 @@ class TimeSeries:
         plt.scatter(self.t, self.obs.real, color='k', edgecolor='k', alpha=0.6)
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
+        plt.grid(color='0.85')
         
 
     # ***Histogram of timesteps dt = t[i] - t[i-1]***
@@ -118,6 +119,7 @@ class TimeSeries:
         n, bins, _ = plt.hist(np.log10(self.dt), nbins, color='mediumseagreen', alpha=0.7, rwidth=0.9)
         plt.xlabel(r"$\log_{10} [\Delta t]$")
         plt.ylabel("Number of timesteps")
+        plt.grid(color='0.85')
 
 
     # ***Compute frequency grid for Fourier transform and power spectrum***
@@ -150,7 +152,7 @@ class TimeSeries:
             print("sense for your dataset.")
         self.fgrid = np.linspace(-Nyquist, Nyquist, num=2*self.nf+1, endpoint=True)
         # print(self.fgrid)
-        self.powfgrid = self.fgrid[self.nf:]
+        self.powfgrid = self.fgrid[self.nf+1:]
         
         
     # ***Compute a 1-dimensional, type 3, non-uniform Fourier transform,
@@ -216,15 +218,15 @@ class TimeSeries:
         data = self.win_coeffs * data
 
         # Transform (not normalized)
-        self.ft = fft(self.t, data, self.fgrid)
+        self.ft = nfft(self.t, data, self.fgrid)
         
         # Compute the power spectrum
-        self.power = np.abs(self.ft[self.nf:])**2
+        self.power = np.abs(self.ft[self.nf+1:])**2
         
         if norm:
-            # Normalize: Sum_i (Power_i * df) = variance(data)
-            # powfgrid[1] = df
-            norm = np.var(data.real)*(self.N-1) / np.sum((self.powfgrid[1]) * self.power)
+            # Normalize: mean(Power_i * df) = variance(data)
+            # powfgrid[0] = df
+            norm = np.var(data.real) / (np.sum(self.powfgrid[0] * self.power) / self.powfgrid[-1])
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
@@ -247,7 +249,7 @@ class TimeSeries:
             sample = next(sampler)
             # Use the same windowing scheme as in the original FT / power spectrum
             sample = sample * self.win_coeffs
-            sample_ft = fft(self.t, sample, self.fgrid)
+            sample_ft = nfft(self.t, sample, self.fgrid)
             highest_peaks[i] = np.max(norm * np.abs(sample_ft)**2)
         self.false_alarm_5 = np.quantile(highest_peaks, 0.95)
         self.false_alarm_1 = np.quantile(highest_peaks, 0.99)
@@ -423,7 +425,7 @@ class TimeSeries:
         if (self.Welch_nf % 2) != 0: # make sure zero frequency is included
             self.Welch_nf += 1
         self.Welch_fgrid = np.linspace(-Nyquist, Nyquist, num=2*self.Welch_nf+1, endpoint=True)
-        self.Welch_powgrid = self.Welch_fgrid[self.Welch_nf:]
+        self.Welch_powgrid = self.Welch_fgrid[self.Welch_nf+1:]
         
         # Information for user
         if not quiet:
@@ -446,9 +448,10 @@ class TimeSeries:
                 else:
                     y = np.ones(len(sg))
                 plt.scatter(self.t[sg]-self.t[sg[0]], y)
-            plt.xlabel("Time")
-            plt.ylabel("Amplitude")
+            plt.xlabel(r"$t$", fontsize='x-large')
+            plt.ylabel(r"$w_t$", fontsize='x-large')
             plt.title("Segment windows")
+            plt.grid(color='0.85')
         
         # Finish
         self.segmented = True
@@ -502,18 +505,18 @@ class TimeSeries:
             data = win_coeffs * data
             fft_input_data.append(data)
             # Segment transform (not normalized)
-            seg_ft = fft(time, data, self.Welch_fgrid)
+            seg_ft = nfft(time, data, self.Welch_fgrid)
             # Compute the power spectrum
-            autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf:])**2)
+            autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf+1:])**2)
 
         # The Welch's power spectrum estimate
         self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
         
-        # Normalize the periodogram with Parseval's theorem: avg(df * power density_i) = time domain variance
+        # Normalize the periodogram with Parseval's theorem:
+        #   mean(df * power density_i) = time domain variance
         if norm:
             yy = np.concatenate(fft_input_data).ravel() 
-            xnorm = np.var(yy) * (len(yy)-1) / \
-                    np.sum(self.Welch_powgrid[1] * self.Welch_pow)
+            xnorm = np.var(yy) / (np.sum(self.Welch_powgrid[0] * self.Welch_pow) / self.Welch_powgrid[-1])
             self.Welch_pow *= xnorm
         # Done
                             
@@ -648,7 +651,7 @@ class TimeSeries:
         if not valid_y:      
             print("Invalid setting for plot y-axis scale. Defaulting to log10.")
             yscale='log10'
-        winfunc = np.abs(fft(self.t, self.win_coeffs.astype(complex), self.fgrid))**2
+        winfunc = np.abs(nfft(self.t, self.win_coeffs.astype(complex), self.fgrid))**2
         winfunc_norm = np.sum(winfunc * self.powfgrid[1])
         # winfunc /= np.max(winfunc)
         winfunc /= winfunc_norm
@@ -663,9 +666,10 @@ class TimeSeries:
                 plt.semilogy(self.fgrid, winfunc, lw=0.7)
             else:
                 plt.plot(self.fgrid, winfunc, lw=0.7)
-            plt.xlabel('Frequency')
-            plt.ylabel('Power')
-            plt.title('Spectral window: ' + self.window)
+            plt.xlabel(r"$f$", fontsize='x-large')
+            plt.ylabel(r"$W(f)$", fontsize='x-large')
+            plt.title('Periodogram spectral window: ' + self.window)
+            plt.grid(color='0.85')
         if (outfile == "None"):
             print("Single-window results not saved") 
             return
@@ -710,10 +714,10 @@ class TimeSeries:
                 win_coeffs = np.ones(len(sg))
 
             seg_windows.append(self.s_weights[i] * \
-                     np.abs(fft(time, win_coeffs.astype(complex), self.Welch_fgrid))**2)
+                     np.abs(nfft(time, win_coeffs.astype(complex), self.Welch_fgrid))**2)
         Welch_window_function = np.mean(np.array(seg_windows), axis=0) / \
                      np.sum(self.s_weights)
-        winfunc_norm = np.sum(Welch_window_function * self.Welch_powgrid[1])
+        winfunc_norm = np.sum(Welch_window_function * self.Welch_powgrid[0])
         self.Welch_window_function = Welch_window_function / winfunc_norm
         # 6-dB bandwidth
         dB6 = 1/3.981 # Fractional 6-dB power decline
@@ -726,9 +730,10 @@ class TimeSeries:
                 plt.semilogy(self.Welch_fgrid, self.Welch_window_function, lw=0.7)
             else:
                 plt.plot(self.Welch_fgrid, self.Welch_window_function, lw=0.7)
-            plt.xlabel('Frequency')
-            plt.ylabel('Power')
+            plt.xlabel(r"$f$", fontsize='x-large')
+            plt.ylabel(r"$W(f)$", fontsize='x-large')
             plt.title('Welch average spectral window') 
+            plt.grid(color='0.85')
         if (outfile == "None"):
             print("Welch average spectral window not saved to file") 
             return
@@ -756,12 +761,14 @@ class TimeSeries:
         except ValueError:
             print("Can't plot - no Fourier transform computed")
             return
-        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(9,6))
+        fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10,6))
         ax1.plot(self.fgrid, self.ft.real, color="mediumblue", lw=lw)
         ax1.set_ylabel(r"$\Re (\mathcal{F}\{x_t\})$")
+        ax1.grid(color='0.85')
         ax2.plot(self.fgrid, self.ft.imag, color="mediumblue", lw=lw)
         ax2.set_ylabel(r"$\Im (\mathcal{F}\{x_t\})$")
-        ax2.set_xlabel("Frequency")
+        ax2.set_xlabel(r"$f$", fontsize='x-large')
+        ax2.grid(color='0.85')
         for v in vlines:
             ax1.axvline(v, color='k', linestyle=':')
             ax1.axvline(-v, color='k', linestyle=':')
@@ -770,9 +777,9 @@ class TimeSeries:
                       
         
     # ***Plot the power spectrum***
-    def powplot(self, show_thresholds=True, Welch=False, yscale='log10', title=r"$\hat{S}(f)$", vlines=[], lw=0.8):
+    def powplot(self, show_thresholds=True, Welch=False, yscale='log10', title='', vlines=[], lw=0.8):
         # Set show_thresholds=True to show bootstrap false alarm thresholds
-        # use title keyword to change the plot title
+        # use title keyword to add a plot title
         # set Welch=True to plot the Welch's power spectrum; default is to plot Lomb-Scargle-like periodogram
         # choices for y-axis scale are 'log10' and 'linear'
         # use vlines keyword to add vertical lines to the plot
@@ -818,9 +825,10 @@ class TimeSeries:
             plt.legend(loc="best", fontsize="small")
         for v in vlines:
             plt.axvline(v, color='k', linestyle=':')
-        plt.xlabel("Frequency")
-        plt.ylabel("Power")
+        plt.xlabel(r"$f$", fontsize='x-large')
+        plt.ylabel(r"$\hat{S}(f)$", fontsize='x-large')
         plt.title(title)
+        plt.grid(color='0.85')
             
             
     # ***Save standard periodogram***
