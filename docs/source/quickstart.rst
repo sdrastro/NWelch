@@ -81,6 +81,15 @@ Continued from above
    ts.powplot(Welch=True)
 
 
+A median version of the Welch's power spectrum estimate is
+available with
+
+.. code-block:: python
+
+   # Estimate the power spectrum by taking median of segment
+   #   power spectra
+   ts.Welch_powspec()
+
 
 **Magnitude-squared estimate from two simultaneous time series**
 
