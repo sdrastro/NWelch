@@ -346,7 +346,7 @@ class Bivariate:
                 boot1 = self.coh_boot_1
                 if (self.N_coh_bootstrap >= 10000):
                     boot01 = self.coh_boot_01
-        plt.figure(figsize=(9,5))
+        plt.figure(figsize=(10,5))
         plt.plot(self.pow_coh_grid[1:], y[1:], color="mediumblue", lw=lw)
         plt.xlabel(r"$f$", fontsize='x-large')
         plt.ylabel(ylabel, fontsize='x-large')
@@ -362,10 +362,9 @@ class Bivariate:
             if (self.N_coh_bootstrap >= 10000):
                 plt.plot(self.pow_coh_grid, boot01, color='crimson', ls=':', label='bootstrap 0.1%')
         if (show_theoretical_thresholds or show_boot_thresholds):
-            plt.legend(loc='best', title='FAPs', fontsize='small')
+            plt.legend(bbox_to_anchor=(1.02, 0.9), title='FAPs', fontsize='small')
         for v in vlines:
             plt.axvline(v, color='gray', linestyle=':')
-            
             
 # ***Plot a Welch's periodogram***
     def Welch_pow_plot(self, x_or_y='x', show_boot_thresholds=True, yscale='log10', vlines=[], lw=0.8):
