@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Quickstart &#8212; NWelch 1.0 documentation</title>
+    <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=4f649999" />
+    <link rel="stylesheet" type="text/css" href="_static/alabaster.css?v=039e1c02" />
+    <script data-url_root="./" id="documentation_options" src="_static/documentation_options.js?v=359c27e9"></script>
+    <script src="_static/doctools.js?v=888ff710"></script>
+    <script src="_static/sphinx_highlight.js?v=4825356b"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Installation" href="installation.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <section id="quickstart">
+<h1>Quickstart<a class="headerlink" href="#quickstart" title="Permalink to this heading">¶</a></h1>
+<p>Be sure to check out the tutorial Jupyter notebooks:</p>
+<p>1. <a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/demo/TimeSeries_demo.ipynb">Periodograms and Welch’s power spectrum estimates of a single time
+series</a></p>
+<p>2. <a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/GJ581/GJ581_coherence.ipynb">Magnitude-squared coherence and power spectrum estimates from two
+simultaneous, unevenly sampled time series</a>
+with standard Welch’s 50% overlapping segments and Blackman-Harris
+tapers</p>
+<p>3.  <a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/aCenB/aCenB_coherence_linear.ipynb">Magnitude-squared coherence and power spectrum estimates from time
+series with large gaps</a>
+with demonstrations of detrending and user-defined segments</p>
+<p>4. <a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/GJ3998/GJ3998_coherence.ipynb">Magnitude-squared coherence, power spectra, and phase spectra</a>
+with 50% overlapping segments and Blackman-Harris tapers</p>
+<p><strong>Simple periodogram of a univariate time series</strong></p>
+<p>This is like a Lomb-Scargle periodogram, but is computed with
+the <a class="reference external" href="https://finufft.readthedocs.io/en/latest/index.html">non-uniform fast Fourier transform</a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">TimeSeries</span> <span class="kn">import</span> <span class="n">TimeSeries</span>
+
+<span class="c1"># Create a TimeSeries object</span>
+<span class="c1"># Constructor outputs different estimates of a pseudo-Nyqyist</span>
+<span class="c1">#   frequency to help you define your frequency grid</span>
+<span class="n">ts</span> <span class="o">=</span> <span class="n">TimeSeries</span><span class="p">(</span><span class="n">timestamps</span><span class="p">,</span> <span class="n">observations</span><span class="p">)</span>
+
+<span class="c1"># Construct a frequency grid for your periodogram estimate</span>
+<span class="c1">#   Choose the maximum frequency that suits your science goals</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">frequency_grid</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+
+<span class="c1"># Compute the complex-valued Fourier transform, periodogram,</span>
+<span class="c1">#   and bootstrap false alarm levels</span>
+<span class="c1"># Default is 10,000 bootstrap iterations; specify a different</span>
+<span class="c1">#   number with the N_bootstrap keyword</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">pow_FT</span><span class="p">()</span>
+
+<span class="c1"># Plot your periodogram</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">powplot</span><span class="p">()</span>
+
+<span class="c1"># If desired, plot the complex-valued Fourier transform</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Ftplot</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Welch’s power spectrum estimate</strong></p>
+<p>Continued from above</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># Specify the segments, frequency grid, and tapers/windows for</span>
+<span class="c1">#   your Welch&#39;s power spectrum estimate - this estimator will</span>
+<span class="c1">#   use 3 Kaiser-Bessel tapered segments with 50% overlap</span>
+<span class="c1">#   and have a maximum frequency of 0.5</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">segment_data</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;KaiserBessel&#39;</span><span class="p">)</span>
+
+<span class="c1"># Estimate the power spectrum</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Welch_powspec</span><span class="p">()</span>
+
+<span class="c1"># Optionally, compute bootstrap false alarm levels</span>
+<span class="c1">#   Default is 10,000 iterations; use N_Welch_bootstrap keyword</span>
+<span class="c1">#   to choose a different number</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Welch_powspec_bootstrap</span><span class="p">()</span>
+
+<span class="c1"># Plot your Welch&#39;s power spectrum estimate</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">powplot</span><span class="p">(</span><span class="n">Welch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><strong>Magnitude-squared estimate from two simultaneous time series</strong></p>
+<p>Phase spectrum and Welch’s power spectrum estimates from both time
+series are computed simultaneously.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">Bivariate</span> <span class="kn">import</span> <span class="n">Bivariate</span>
+
+<span class="c1"># Create a Bivariate object, which is a combination of two</span>
+<span class="c1">#   TimeSeries objects</span>
+<span class="n">two_ts</span> <span class="o">=</span> <span class="n">Bivariate</span><span class="p">(</span><span class="n">timestamps</span><span class="p">,</span> <span class="n">observations1</span><span class="p">,</span> <span class="n">observations2</span><span class="p">)</span>
+
+<span class="c1"># Set segmentation scheme, maximum frequency, tapers / windows,</span>
+<span class="c1">#   and detrending options</span>
+<span class="c1"># plot_windows keyword allows you to visualize the tapers /</span>
+<span class="c1">#   windows applied to each segment to make sure they retain</span>
+<span class="c1">#   their &quot;bell&quot; shapes</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">segment_data</span><span class="p">(</span><span class="mi">4</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;BlackmanHarris&#39;</span><span class="p">,</span>
+    <span class="n">plot_windows</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Estimate power spectra and magnitude-squared coherence</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">Welch_coherence_powspec</span><span class="p">()</span>
+
+<span class="c1"># Estimate false alarm levels</span>
+<span class="c1">#   Specify number of bootstrap iterations with N_coh_bootstrap</span>
+<span class="c1">#   keyword - default is 10,000</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">Welch_coherence_powspec_bootstrap</span><span class="p">()</span>
+
+<span class="c1"># Plot your power spectra</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">Welch_pow_plot</span><span class="p">(</span><span class="n">x_or_y</span><span class="o">=</span><span class="s1">&#39;x&#39;</span><span class="p">)</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">Welch_pow_plot</span><span class="p">(</span><span class="n">x_or_y</span><span class="o">=</span><span class="s1">&#39;y&#39;</span><span class="p">)</span>
+
+<span class="c1"># Plot coherence estimate</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">coh_plot</span><span class="p">()</span>
+
+<span class="c1"># Plot phase spectrum</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">phase_plot</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><strong>Extended functionality</strong></p>
+<p><em>Siegel’s test for periodicity</em> - this is an extension of the
+Fisher (1929) test, which is valid only if the time series
+traces a single oscillation. Siegel’s test works for time series
+with up to three oscillations.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&#39;&#39;&#39;For the simple periodogram&#39;&#39;&#39;</span>
+<span class="c1"># Conservative option, designed for two periodicities</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Siegel_test</span><span class="p">()</span>
+
+<span class="c1"># Works with up to 3 periodicities, but more prone to false positives</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Siegel_test</span><span class="p">(</span><span class="n">tri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="sd">&#39;&#39;&#39;For the Welch power spectrum estimate&#39;&#39;&#39;</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Siegel_test</span><span class="p">(</span><span class="n">Welch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">Siegel_test</span><span class="p">(</span><span class="n">Welch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">tri</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</pre></div>
+</div>
+<p><em>Estimate and plot the spectral window</em> - when the time series
+sampling is extremely uneven, a sinusoid doesn’t create a simple
+peak in the periodogram; instead it might create a pitchfork or
+zigzag shape, or something even weirder. Visualizing the
+spectral window helps you understand the characteristics of your
+power spectrum / coherence estimator and interpret your results.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># For the simple periodogram</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">spectral_window</span><span class="p">()</span>
+
+<span class="c1"># For a Welch&#39;s power spectrum estimate</span>
+<span class="n">ts</span><span class="o">.</span><span class="n">spectral_window_Welch</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em>Quick scatter plot of your time series</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ts</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">()</span>
+</pre></div>
+</div>
+<p><em>Plot a histogram of log10(timesteps)</em> -
+This is useful when you’re trying to assess the “unevenness” of
+your time series - sometimes in astronomy we see timestep
+histograms covering six orders of magnitude</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">ts</span><span class="o">.</span><span class="n">dthist</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Note - all methods in the TimeSeries class can be applied to
+either or both series in a Bivariate object:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">two_ts</span><span class="o">.</span><span class="n">x_series</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">()</span>
+<span class="n">two_ts</span><span class="o">.</span><span class="n">y_series</span><span class="o">.</span><span class="n">Siegel_test</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>This quickstart guide will get you up and running, but NWelch is more
+customizable than is demonstrated here. For example, you can detrend
+each Welch’s segment with a quadratic, or turn off detrending entirely.
+You can add vertical lines to your power spectrum and coherence plots at
+frequencies of interest. You can specify the axis labels on your plots,
+or change the y-axis scale in power spectrum plots from logarithmic to
+linear. Most importantly, you can save your results to an ASCII
+file. Each method in the TimeSeries class is thoroughly documented
+in <a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/demo/TimeSeries_demo.ipynb">TimeSeries_demo.ipynb</a>,
+while each method in the Bivariate class is demonstrated in
+<a class="reference external" href="https://github.com/sdrastro/NWelch/blob/main/GJ581/GJ581_coherence.ipynb">GJ581_coherence.ipynb</a>
+(for non-astronomers, GJ 581 is an M-dwarf star that my group analyzed
+in the <a class="reference external" href="https://ui.adsabs.harvard.edu/abs/2022AJ....163..169D/abstract">paper accompanying NWelch</a>).</p>
+<p>API documentation is on my to-do list.</p>
+</section>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="index.html">NWelch</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="dependencies.html">Dependencies</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Quickstart</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="installation.html" title="previous chapter">Installation</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2024, Sarah Dodson-Robinson.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 7.1.2</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.13</a>
+      
+      |
+      <a href="_sources/quickstart.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
