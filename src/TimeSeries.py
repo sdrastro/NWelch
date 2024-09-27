@@ -152,7 +152,7 @@ class TimeSeries:
             print("sense for your dataset.")
         self.fgrid = np.linspace(-Nyquist, Nyquist, num=2*self.nf+1, endpoint=True)
         # print(self.fgrid)
-        self.powfgrid = self.fgrid[self.nf+1:]
+        self.powfgrid = self.fgrid[self.nf:]
         
         
     # ***Compute a 1-dimensional, type 3, non-uniform Fourier transform,
@@ -221,12 +221,12 @@ class TimeSeries:
         self.ft = nfft(self.t, data, self.fgrid)
         
         # Compute the power spectrum
-        self.power = np.abs(self.ft[self.nf+1:])**2
+        self.power = np.abs(self.ft[self.nf:])**2
         
         if norm:
             # Normalize: mean(Power_i * df) = variance(data)
-            # powfgrid[0] = df
-            norm = np.var(data.real) / (np.sum(self.powfgrid[0] * self.power) / self.powfgrid[-1])
+            df = self.powfgrid[1] - self.powfgrid[0]
+            norm = np.var(data.real) / (np.sum(df * self.power) / self.powfgrid[-1])
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
@@ -425,7 +425,7 @@ class TimeSeries:
         if (self.Welch_nf % 2) != 0: # make sure zero frequency is included
             self.Welch_nf += 1
         self.Welch_fgrid = np.linspace(-Nyquist, Nyquist, num=2*self.Welch_nf+1, endpoint=True)
-        self.Welch_powgrid = self.Welch_fgrid[self.Welch_nf+1:]
+        self.Welch_powgrid = self.Welch_fgrid[self.Welch_nf:]
         
         # Information for user
         if not quiet:
@@ -510,7 +510,7 @@ class TimeSeries:
             # Segment transform (not normalized)
             seg_ft = nfft(time, data, self.Welch_fgrid)
             # Compute the power spectrum
-            autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf+1:])**2)
+            autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf:])**2)
 
         # The Welch's power spectrum estimate
         if mode == 'mean':
@@ -527,7 +527,7 @@ class TimeSeries:
         #   mean(df * power density_i) = time domain variance
         if norm:
             yy = np.concatenate(fft_input_data).ravel() 
-            xnorm = np.var(yy) / (np.sum(self.Welch_powgrid[0] * self.Welch_pow) / self.Welch_powgrid[-1])
+            xnorm = np.var(yy) / (np.sum(self.Welch_powgrid[1] * self.Welch_pow) / self.Welch_powgrid[-1])
             self.Welch_pow *= xnorm
         # Done
                             
@@ -728,7 +728,7 @@ class TimeSeries:
                      np.abs(nfft(time, win_coeffs.astype(complex), self.Welch_fgrid))**2)
         Welch_window_function = np.mean(np.array(seg_windows), axis=0) / \
                      np.sum(self.s_weights)
-        winfunc_norm = np.sum(Welch_window_function * self.Welch_powgrid[0])
+        winfunc_norm = np.sum(Welch_window_function * self.Welch_powgrid[1])
         self.Welch_window_function = Welch_window_function / winfunc_norm
         # 6-dB bandwidth
         dB6 = 1/3.981 # Fractional 6-dB power decline
@@ -825,9 +825,9 @@ class TimeSeries:
                     f01 = self.false_alarm_01
         plt.figure(figsize=(9,5))
         if (yscale == 'log10'):
-            plt.semilogy(x[1:], y[1:], color='mediumblue', lw=lw)
+            plt.semilogy(x[2:], y[2:], color='mediumblue', lw=lw)
         else:
-            plt.plot(x[1:], y[1:], color='mediumblue', lw=lw)
+            plt.plot(x[2:], y[2:], color='mediumblue', lw=lw)
         if 'f01' in locals():
             plt.axhline(f01, color='crimson', ls=':', label='bootstrap 0.1% FAP')
         if 'f5' in locals():

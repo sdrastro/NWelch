@@ -5,8 +5,7 @@ from resample.bootstrap import resample
 from scipy import stats
 
 # Bivariate is built on TimeSeries class; import here
-import TimeSeries
-
+from NWelch import TimeSeries
 
 # ***Lambda function for theoretical coherence false alarm thresholds***
 #    equation from Schulz & Stattegger 1997
@@ -116,8 +115,8 @@ class Bivariate:
             x_seg.pow_FT(window=self.window, trend=trend, trend_type=trend_type, N_bootstrap=0, quiet=True, norm=False)
             y_seg.pow_FT(window=self.window, trend=trend, trend_type=trend_type, N_bootstrap=0, quiet=True, norm=False)
             # Get the segment cross-spectrum
-            xycross.append(self.x_series.s_weights[i] * np.conj(x_seg.ft[x_seg.nf+1:]) * \
-                           y_seg.ft[y_seg.nf+1:])
+            xycross.append(self.x_series.s_weights[i] * np.conj(x_seg.ft[x_seg.nf:]) * \
+                           y_seg.ft[y_seg.nf:])
                            
         # Order of operations for coherence numerator: mean -> absolute value -> square
         self.cross = np.mean(np.array(xycross), axis=0)
@@ -347,7 +346,7 @@ class Bivariate:
                 if (self.N_coh_bootstrap >= 10000):
                     boot01 = self.coh_boot_01
         plt.figure(figsize=(10,5))
-        plt.plot(self.pow_coh_grid[1:], y[1:], color="mediumblue", lw=lw)
+        plt.plot(self.pow_coh_grid[2:], y[2:], color="mediumblue", lw=lw)
         plt.xlabel(r"$f$", fontsize='x-large')
         plt.ylabel(ylabel, fontsize='x-large')
         plt.title("Magnitude-squared coherence")
@@ -357,10 +356,10 @@ class Bivariate:
             plt.axhline(prob1, color='mediumspringgreen', label="analytical 1%", lw=0.7)
             plt.axhline(prob01, color='crimson', label="analytical 0.1%", lw=0.7)
         if (self.N_coh_bootstrap >= 100) and show_boot_thresholds:
-            plt.plot(self.pow_coh_grid, boot5, color='darkorchid', ls=':', label='bootstrap 5%')
-            plt.plot(self.pow_coh_grid, boot1, color='mediumspringgreen', ls=':', label='bootstrap 1%')
+            plt.plot(self.pow_coh_grid[2:], boot5[2:], color='darkorchid', ls=':', label='bootstrap 5%')
+            plt.plot(self.pow_coh_grid[2:], boot1[2:], color='mediumspringgreen', ls=':', label='bootstrap 1%')
             if (self.N_coh_bootstrap >= 10000):
-                plt.plot(self.pow_coh_grid, boot01, color='crimson', ls=':', label='bootstrap 0.1%')
+                plt.plot(self.pow_coh_grid[2:], boot01[2:], color='crimson', ls=':', label='bootstrap 0.1%')
         if (show_theoretical_thresholds or show_boot_thresholds):
             plt.legend(bbox_to_anchor=(1.02, 0.9), title='FAPs', fontsize='small')
         for v in vlines:
@@ -451,7 +450,7 @@ class Bivariate:
             threshold = self.coh_prob_1
         where_meaningful = np.where(self.coh > threshold)[0]
         plt.figure(figsize=(9,5))
-        plt.plot(self.pow_coh_grid, self.phase, color='mediumblue', lw=0.8, ls=':')
+        plt.plot(self.pow_coh_grid[2:], self.phase[2:], color='mediumblue', lw=0.8, ls=':')
         plt.scatter(self.pow_coh_grid[where_meaningful], self.phase[where_meaningful], \
                  color='mediumblue', label=r"Significant $\widehat{C}^2_{xy}(f)$", s=5)
         plt.xlabel(r"$f$", fontsize='x-large')

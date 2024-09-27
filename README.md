@@ -1,6 +1,19 @@
 # NWelch
 python implementation of Welch's method for estimating the power spectra, complex cross-spectrum, magnitude-squared coherence, and phase spectrum of unevenly spaced, bivariate time series
 
+An experimental <tt>NWelch</tt> package is available on TestPyPI. Try
+installing with
+
+<tt>$ pip install -i https://test.pypi.org/simple/ NWelch</tt>
+
+Otherwise, clone this repository and place the source code
+somewhere in your <tt>python</tt> path.
+
+The Jupyter notebooks in this repository provide the most comprehensive
+illustration of how to use <tt>NWelch</tt>, but there is also
+[proto-documentation with a quickstart
+guide](https://nwelch.readthedocs.io/en/latest/) on readthedocs.
+
 Available tasks for univariate time series (TimeSeries class):
 
 - Periodogram of time series (similar to Lomb-Scargle, but nonuniform FFT-based), with optional detrending, windowing, and bootstrap false alarm threshold calculation
