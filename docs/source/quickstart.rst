@@ -22,7 +22,22 @@ with demonstrations of detrending and user-defined segments
 <https://github.com/sdrastro/NWelch/blob/main/GJ3998/GJ3998_coherence.ipynb>`_
 with 50% overlapping segments and Blackman-Harris tapers
 
+**Import NWelch in one of two ways**
 
+If you have the NWelch package installed:
+
+.. code-block:: python
+
+   from NWelch.TimeSeries import TimeSeries
+
+If you weren't able to install the NWelch package and
+are relying on the source code:
+
+.. code-block:: python
+
+   import sys
+   sys.path.insert(0, 'your/path/to/NWelch/src')
+   from TimeSeries import TimeSeries
 
 **Simple periodogram of a univariate time series**
 
@@ -31,8 +46,6 @@ the `non-uniform fast Fourier transform
 <https://finufft.readthedocs.io/en/latest/index.html>`_.
 
 .. code-block:: python
-
-   from TimeSeries import TimeSeries
 
    # Create a TimeSeries object
    # Constructor outputs different estimates of a pseudo-Nyqyist
@@ -81,27 +94,26 @@ Continued from above
    ts.powplot(Welch=True)
 
 
-A median version of the Welch's power spectrum estimate is
-available with
-
-.. code-block:: python
-
-   # Estimate the power spectrum by taking median of segment
-   #   power spectra
-   ts.Welch_powspec()
-
 
 **Magnitude-squared estimate from two simultaneous time series**
 
 Phase spectrum and Welch's power spectrum estimates from both time
 series are computed simultaneously.
 
+Import the Bivariate class with
+
+.. code-block:: python
+
+   from NWelch.Bivariate import Bivariate
+
+or, if you don't have the NWelch package installed, just
+
 .. code-block:: python
 
    from Bivariate import Bivariate
 
    # Create a Bivariate object, which is a combination of two
-   #   TimeSeries objects
+   #   TimeSeries objects (two_ts)
    two_ts = Bivariate(timestamps, observations1, observations2)
 
    # Set segmentation scheme, maximum frequency, tapers / windows,
