@@ -10,4 +10,9 @@ from TestPyPI. Install with
 
 If the pip installation doesn't work for you, the next-best
 thing is to clone the GitHub repository and place the source
-code somewhere in your python path.
+code somewhere in your python path:
+
+.. code-block:: python
+
+   import sys
+   sys.path.insert(0, '/path/to/NWelch/src/')

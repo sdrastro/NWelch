@@ -51,8 +51,8 @@ with 50% overlapping segments and Blackman-Harris tapers</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">NWelch.TimeSeries</span> <span class="kn">import</span> <span class="n">TimeSeries</span>
 </pre></div>
 </div>
-<p>If you weren’t able to install the NWelch package and
-are relying on the source code:</p>
+<p>If you haven’t installed the NWelch package and are relying
+on the source code:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">insert</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;your/path/to/NWelch/src&#39;</span><span class="p">)</span>
 <span class="kn">from</span> <span class="nn">TimeSeries</span> <span class="kn">import</span> <span class="n">TimeSeries</span>
@@ -81,6 +81,11 @@ the <a class="reference external" href="https://finufft.readthedocs.io/en/latest
 
 <span class="c1"># If desired, plot the complex-valued Fourier transform</span>
 <span class="n">ts</span><span class="o">.</span><span class="n">Ftplot</span><span class="p">()</span>
+
+<span class="c1"># Return the periodogram and complex-valued Fourier transform</span>
+<span class="c1">#   if you want to work with them outside of NWelch</span>
+<span class="n">pgram</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">get_periodogram</span><span class="p">()</span>
+<span class="n">Ft</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">get_Fourier</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><strong>Welch’s power spectrum estimate</strong></p>
@@ -90,6 +95,10 @@ the <a class="reference external" href="https://finufft.readthedocs.io/en/latest
 <span class="c1">#   use 3 Kaiser-Bessel tapered segments with 50% overlap</span>
 <span class="c1">#   and have a maximum frequency of 0.5</span>
 <span class="n">ts</span><span class="o">.</span><span class="n">segment_data</span><span class="p">(</span><span class="mi">3</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="n">window</span><span class="o">=</span><span class="s1">&#39;KaiserBessel&#39;</span><span class="p">)</span>
+
+<span class="c1"># Return the segments (useful if NWelch calculated them</span>
+<span class="c1">#   automatically)</span>
+<span class="n">segments</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">get_segments</span><span class="p">()</span>
 
 <span class="c1"># Estimate the power spectrum</span>
 <span class="n">ts</span><span class="o">.</span><span class="n">Welch_powspec</span><span class="p">()</span>
@@ -101,6 +110,10 @@ the <a class="reference external" href="https://finufft.readthedocs.io/en/latest
 
 <span class="c1"># Plot your Welch&#39;s power spectrum estimate</span>
 <span class="n">ts</span><span class="o">.</span><span class="n">powplot</span><span class="p">(</span><span class="n">Welch</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># Return the Welch&#39;s power spectrum estimate (useful if you</span>
+<span class="c1">#   want to work with it outside of NWelch)</span>
+<span class="n">Welch_powspec</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">get_Welch</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><strong>Magnitude-squared estimate from two simultaneous time series</strong></p>
@@ -142,6 +155,13 @@ series are computed simultaneously.</p>
 
 <span class="c1"># Plot phase spectrum</span>
 <span class="n">two_ts</span><span class="o">.</span><span class="n">phase_plot</span><span class="p">()</span>
+
+<span class="c1"># Return coherence estimates, cross spectrum, and phase</span>
+<span class="c1">#   spectrum in dictionary form (to work with outside of</span>
+<span class="c1">#   NWelch)</span>
+<span class="n">coh</span> <span class="o">=</span> <span class="n">two_ts</span><span class="o">.</span><span class="n">get_coherence</span><span class="p">()</span>
+<span class="n">cross</span> <span class="o">=</span> <span class="n">two_ts</span><span class="o">.</span><span class="n">get_cross_spectrum</span><span class="p">()</span>
+<span class="n">phase</span> <span class="o">=</span> <span class="n">two_ts</span><span class="o">.</span><span class="n">get_phase</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><strong>Extended functionality</strong></p>
@@ -166,12 +186,13 @@ sampling is extremely uneven, a sinusoid doesn’t create a simple
 peak in the periodogram; instead it might create a pitchfork or
 zigzag shape, or something even weirder. Visualizing the
 spectral window helps you understand the characteristics of your
-power spectrum / coherence estimator and interpret your results.</p>
+power spectrum / coherence estimator and interpret your results.
+Check out the demo notebooks for more on spectral windows.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># For the simple periodogram</span>
-<span class="n">ts</span><span class="o">.</span><span class="n">spectral_window</span><span class="p">()</span>
+<span class="n">specwin</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">spectral_window</span><span class="p">()</span>
 
 <span class="c1"># For a Welch&#39;s power spectrum estimate</span>
-<span class="n">ts</span><span class="o">.</span><span class="n">spectral_window_Welch</span><span class="p">()</span>
+<span class="n">Welch_specwin</span> <span class="o">=</span> <span class="n">ts</span><span class="o">.</span><span class="n">spectral_window_Welch</span><span class="p">()</span>
 </pre></div>
 </div>
 <p><em>Quick scatter plot of your time series</em></p>

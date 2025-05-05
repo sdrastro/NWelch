@@ -30,8 +30,8 @@ If you have the NWelch package installed:
 
    from NWelch.TimeSeries import TimeSeries
 
-If you weren't able to install the NWelch package and
-are relying on the source code:
+If you haven't installed the NWelch package and are relying
+on the source code:
 
 .. code-block:: python
 
@@ -68,6 +68,11 @@ the `non-uniform fast Fourier transform
    # If desired, plot the complex-valued Fourier transform
    ts.Ftplot()
 
+   # Return the periodogram and complex-valued Fourier transform
+   #   if you want to work with them outside of NWelch
+   pgram = ts.get_periodogram()
+   Ft = ts.get_Fourier()
+
 
 
 **Welch's power spectrum estimate**
@@ -82,6 +87,10 @@ Continued from above
    #   and have a maximum frequency of 0.5
    ts.segment_data(3, 0.5, window='KaiserBessel')
 
+   # Return the segments (useful if NWelch calculated them
+   #   automatically)
+   segments = ts.get_segments()
+
    # Estimate the power spectrum
    ts.Welch_powspec()
 
@@ -92,6 +101,10 @@ Continued from above
 
    # Plot your Welch's power spectrum estimate
    ts.powplot(Welch=True)
+
+   # Return the Welch's power spectrum estimate (useful if you
+   #   want to work with it outside of NWelch)
+   Welch_powspec = ts.get_Welch()
 
 
 
@@ -142,6 +155,13 @@ or, if you don't have the NWelch package installed, just
    # Plot phase spectrum
    two_ts.phase_plot()
 
+   # Return coherence estimates, cross spectrum, and phase
+   #   spectrum in dictionary form (to work with outside of
+   #   NWelch)
+   coh = two_ts.get_coherence()
+   cross = two_ts.get_cross_spectrum()
+   phase = two_ts.get_phase()
+
 
 
 **Extended functionality**
@@ -173,14 +193,15 @@ peak in the periodogram; instead it might create a pitchfork or
 zigzag shape, or something even weirder. Visualizing the
 spectral window helps you understand the characteristics of your
 power spectrum / coherence estimator and interpret your results.
+Check out the demo notebooks for more on spectral windows.
 
 .. code-block:: python
 
    # For the simple periodogram
-   ts.spectral_window()
+   specwin = ts.spectral_window()
 
    # For a Welch's power spectrum estimate
-   ts.spectral_window_Welch()
+   Welch_specwin = ts.spectral_window_Welch()
 
 
 
