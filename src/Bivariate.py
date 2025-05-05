@@ -78,6 +78,18 @@ class Bivariate:
         self.segments = self.x_series.segments
         self.window = window
         
+        
+# ***Return the boundaries of the Welch's segments and the effective number of
+#    segments (useful if they are computed automatically by NWelch)***
+    def get_segments(self):
+        try:
+            if not self.segmented:
+                raise ValueError
+        except ValueError:
+            print("Error: data not segmented. Use segment_data() to define segments.")
+            return
+        return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
+        
 
 # ***Perform a SINGLE coherence / power spectrum estimate***
 #    Use it either on the actual data, or on a scrambled dataset as part
@@ -153,6 +165,48 @@ class Bivariate:
         # Done
         
         
+# ***Return coherence as dictionary of {frequency, coh_raw, coh_debiased, coh_transformed}***
+#      Useful if you want to work with them outside of NWelch. coh_transformed is debiased and
+#      has inverse hyperbolic arctangent transformation applied, coh_debiased has debiasing 
+#      but no transformation, and coh_raw has neither debiasing nor transformation.
+    def get_coherence(self):
+        try:
+            if (self.coh is None):
+                raise ValueError
+        except ValueError:
+            print("Error: Coherence not computed.")
+            print("Use Welch_coherence_powspec() to compute coherence.")
+            return
+        return {'frequency': self.pow_coh_grid, 'coh_raw': self.coh_raw,
+                'coh_debiased': self.coh, 'coh_transformed': self.coh_transformed}
+    
+    
+# ***Return phase spectrum as dictionary of {frequency, phase}***
+#    Useful if you want to work with it outside of NWelch
+    def get_phase(self):
+        try:
+            if (self.coh is None):
+                raise ValueError
+        except ValueError:
+            print("Error: Coherence and phase not computed.")
+            print("Use Welch_coherence_powspec() to compute coherence and phase.")
+            return
+        return {'frequency': self.pow_coh_grid, 'phase': self.phase}
+    
+    
+# ***Return cross spectrum as dictionary of {frequency, cross-spectrum}***
+#    Useful if you want to work with it outside of NWelch
+    def get_cross_spectrum(self):
+        try:
+            if (self.coh is None):
+                raise ValueError
+        except ValueError:
+            print("Error: cross-spectrum not computed.")
+            print("Use Welch_coherence_powspec() to compute cross-spectrum and coherence.")
+            return
+        return {'frequency': self.pow_coh_grid, 'cross_spectrum': self.cross}
+        
+        
 # ***Perform Siegel's test on the Welch's periodograms***
     def Siegel_Welch(self, tri=False):
     # Set tri=True to search for up to 3 periodic signals; default is tri=False,
@@ -210,7 +264,7 @@ class Bivariate:
         ncrossperR_01_original = copy.deepcopy(self.ncrossperR_01)
 
         self.N_coh_bootstrap = N_coh_bootstrap
-        N_coh_f = self.nf
+        N_coh_f = self.nf + 1
 
         coh_noise = np.zeros((N_coh_bootstrap, N_coh_f))
         coh_transformed_noise = np.zeros((N_coh_bootstrap, N_coh_f))

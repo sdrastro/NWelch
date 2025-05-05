@@ -261,6 +261,49 @@ class TimeSeries:
             self.frequency_domain_noise = None
             
             
+    # ***Return the (possibly windowed) periodogram as a dictionary of 
+    #    {'frequency', 'periodogram'} so user can work with it
+    #    outside of NWelch***
+    def get_periodogram(self):
+        try:
+            if (self.power is None):
+                raise ValueError
+        except ValueError:
+            print("Error: periodogram not computed.")
+            print("Use pow_FT() to compute Fourier coefficients and periodogram.")
+            return
+        return {'frequency': self.powfgrid, 'periodogram': self.power}
+    
+    
+    # ***Return the (possibly windowed) Fourier coefficients computed for the STANDARD
+    #    (non-Welch) periodogram as a dictionary of 
+    #    {'frequency_symmetric', 'Fourier_coeffs'} 
+    #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
+    #    about zero (includes negative frequencies).***
+    def get_Fourier(self):
+        try:
+            if (self.power is None):
+                raise ValueError
+        except ValueError:
+            print("Error: Fourier coefficients not computed.")
+            print("Use pow_FT() to compute Fourier coefficients and periodogram.")
+            return
+        return {'frequency_symmetric':self.fgrid, 'Fourier_coeffs':self.ft}
+    
+    
+    # ***Return the window coefficients as a dictionary of 
+    #    {'window_type', 'coefficients'} so user can work with them outside of NWelch***
+    def get_window(self):
+        try:
+            if (self.power is None):
+                raise ValueError
+        except ValueError:
+            print("Error: window coefficients not computed.")
+            print("Use pow_FT() to set the window coefficients and compute the periodogram.")
+            return
+        return {'window_type': self.window, 'coefficients': self.win_coeffs}
+            
+            
     # ***Break the time series into segments in preparation for Welch's algorithm***
     def segment_data(self, seg, Nyquist, oversample=6, window='None', plot_windows=False, quiet=False):
         # As above, Nyquist is the maximum frequency desired for the periodogram
@@ -455,6 +498,18 @@ class TimeSeries:
         
         # Finish
         self.segmented = True
+        
+        
+    # ***Return the boundaries of the Welch's segments and the effective number of
+    #    segments (useful if they are computed automatically by NWelch)***
+    def get_segments(self):
+        try:
+            if not self.segmented:
+                raise ValueError
+        except ValueError:
+            print("Error: data not segmented. Use segment_data() to define segments.")
+            return
+        return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
                             
                             
     # ***Perform a SINGLE Welch's power spectrum estimate***
@@ -530,6 +585,19 @@ class TimeSeries:
             xnorm = np.var(yy) / (np.sum(self.Welch_powgrid[1] * self.Welch_pow) / self.Welch_powgrid[-1])
             self.Welch_pow *= xnorm
         # Done
+        
+        
+    # ***Return the Welch's power spectrum estimate as dictionary of
+    #    {'frequency', 'Welch_power'}***
+    def get_Welch(self):
+        try:
+            if (self.Welch_pow is None):
+                raise ValueError
+        except ValueError:
+            print("Error: Welch's power spectrum estimate not computed.")
+            print("Use Welch_powspec() first.")
+            return
+        return {'frequency':self.Welch_powgrid, 'Welch_power':self.Welch_pow}
                             
                             
     # ***Assuming white noise, use bootstrap to calculate
@@ -683,7 +751,6 @@ class TimeSeries:
             plt.grid(color='0.85')
         if (outfile == "None"):
             print("Single-window results not saved") 
-            return
         else:
             try:
                 good_filename = (type(outfile) is str)
@@ -691,9 +758,15 @@ class TimeSeries:
                     raise TypeError
             except TypeError:
                 print("Bad output file name - no results saved")
-                return
+                return {'frequency_symmetric':self.fgrid, 'spectral_window':self.window_function}
             header = "Spectral window\nMeasured half main lobe width: {}".format(bw) + "\nfrequency power"
             np.savetxt(outfile, np.column_stack((self.fgrid, winfunc)), header=header)
+            
+        # ***Return the spectral window as a dictionary of 
+        #    {'frequency_symmetric', 'spectral_window'} 
+        #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
+        #    about zero (includes negative frequencies).
+        return {'frequency_symmetric':self.fgrid, 'spectral_window':self.window_function}
 
 
     # ***Calculate the spectral window of the Welch's estimator***
@@ -747,18 +820,23 @@ class TimeSeries:
             plt.grid(color='0.85')
         if (outfile == "None"):
             print("Welch average spectral window not saved to file") 
-            return
         else:
             try:
                 good_filename = (type(outfile) is str)
                 if not good_filename:
                     raise TypeError
+                else:
+                    header = "Welch's spectral window\nMeasured half main lobe width: {}".format(bw)+ "\nfrequency power"
+                    np.savetxt(outfile, np.column_stack((self.Welch_fgrid, \
+                               self.Welch_window_function)), header=header)
             except TypeError:
                 print("Bad output file name - no results saved")
-                return
-            header = "Welch's spectral window\nMeasured half main lobe width: {}".format(bw)+ "\nfrequency power"
-            np.savetxt(outfile, np.column_stack((self.Welch_fgrid, \
-                   self.Welch_window_function)), header=header)
+            
+        # ***Return the spectral window as a dictionary of 
+        #    {'frequency_symmetric', 'spectral_window'} 
+        #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
+        #    about zero (includes negative frequencies).
+        return {'frequency_symmetric':self.Welch_fgrid, 'spectral_window_Welch':self.Welch_window_function}
     
 
     # ***Plot the complex-valued Fourier transform***
