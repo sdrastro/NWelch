@@ -4,9 +4,9 @@
 # Detrended: True
 # Trend type: linear
 # Number of bootstrap iterations: 10000
-# 5% FAP (bootstrap): 0.00012762216694324642
-# 1% FAP (bootstrap): 0.00015176491091819732
-# 0.1% FAP (bootstrap): 0.0001822494420664957
+# 5% FAP (bootstrap): 0.00012626450446025998
+# 1% FAP (bootstrap): 0.0001497880814284838
+# 0.1% FAP (bootstrap): 0.00018033995315617428
 # Window applied: KaiserBessel
 # frequency,power
 0.00000000e+00,3.49501612e-07

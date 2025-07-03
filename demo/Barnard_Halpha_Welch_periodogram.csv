@@ -9,9 +9,9 @@
 # Trend type: linear
 # Window applied: BlackmanHarris
 # Number of bootstrap iterations: 10000
-# 5% FAP (bootstrap): 0.0004949932774626168
-# 1% FAP (bootstrap): 0.0005752646002575471
-# 0.1% FAP (bootstrap): 0.0006820026058393362
+# 5% FAP (bootstrap): 0.0004888595617257806
+# 1% FAP (bootstrap): 0.0005710456404158004
+# 0.1% FAP (bootstrap): 0.000691448472776235
 # frequency,power
 0.00000000e+00,3.10245336e-04
 5.37634409e-05,3.10408587e-04

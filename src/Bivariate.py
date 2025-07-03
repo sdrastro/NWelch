@@ -183,7 +183,8 @@ class Bivariate:
     
 # ***Return phase spectrum as dictionary of {frequency, phase}***
 #    Useful if you want to work with it outside of NWelch
-    def get_phase(self):
+#    If unwrapped == True, use np.unwrap() to remove discontinuities in phase
+    def get_phase(self, unwrapped=True):
         try:
             if (self.coh is None):
                 raise ValueError
@@ -191,8 +192,10 @@ class Bivariate:
             print("Error: Coherence and phase not computed.")
             print("Use Welch_coherence_powspec() to compute coherence and phase.")
             return
-        return {'frequency': self.pow_coh_grid, 'phase': self.phase}
-    
+        if unwrapped:
+            return {'frequency': self.pow_coh_grid, 'phase': np.unwrap(self.phase, period=360)}
+        else:
+            return {'frequency': self.pow_coh_grid, 'phase': self.phase}
     
 # ***Return cross spectrum as dictionary of {frequency, cross-spectrum}***
 #    Useful if you want to work with it outside of NWelch
@@ -255,6 +258,7 @@ class Bivariate:
         coh_raw_original = copy.deepcopy(self.coh_raw)
         coh_transformed_original = copy.deepcopy(self.coh_transformed)
         cross_original = copy.deepcopy(self.cross)
+        phase_original = copy.deepcopy(self.phase)
         cross_mag_original = copy.deepcopy(self.cross_mag)
         coh_prob_5_original = copy.deepcopy(self.coh_prob_5)
         coh_prob_1_original = copy.deepcopy(self.coh_prob_1)
@@ -333,6 +337,7 @@ class Bivariate:
         self.coh_raw = coh_raw_original
         self.coh_transformed = coh_transformed_original
         self.cross = cross_original
+        self.phase = phase_original
         self.cross_mag = cross_mag_original
         self.coh_prob_5 = coh_prob_5_original
         self.coh_prob_1 = coh_prob_1_original
@@ -470,14 +475,16 @@ class Bivariate:
 
         
 # ***Plot the phase spectrum***
-    def phase_plot(self, fal='analytical1', vlines=[]):
+    def phase_plot(self, fal='analytical1', vlines=[], unwrapped=True):
         # fal keyword sets the false alarm threshold above which the coherence
         #    should sit in order for the phase estimate to be considered meaningful
         #    options are 'analytical5' = analytical 5% FAL, 'analytical1' = analytical 1% FAL,
         #    'analytical01' = analytical 0.1% FAL,
         #    'boot5' = strict bootstrap 5% FAL, 'boot1' = strict bootstrap 1% FAL, and
         #    'boot01' = strict bootstrap 0.1% FAL
-        #    
+        # vlines is list of frequencies at which to add vertical lines to the plot
+        # unwrapped: uses np.unwrap() to create continuous phase spectra that don't jump from
+        #    -180 to 180 or vice versa
         try:
             cant = self.coh is None
             if cant:
@@ -502,9 +509,13 @@ class Bivariate:
             threshold = self.coh_boot_01
         else:
             threshold = self.coh_prob_1
+        if unwrapped:
+            ph = np.unwrap(self.phase, period=360)
+        else:
+            ph = self.phase
         where_meaningful = np.where(self.coh > threshold)[0]
         plt.figure(figsize=(9,5))
-        plt.plot(self.pow_coh_grid[2:], self.phase[2:], color='mediumblue', lw=0.8, ls=':')
+        plt.plot(self.pow_coh_grid[2:], ph[2:], color='mediumblue', lw=0.8, ls=':')
         plt.scatter(self.pow_coh_grid[where_meaningful], self.phase[where_meaningful], \
                  color='mediumblue', label=r"Significant $\widehat{C}^2_{xy}(f)$", s=5)
         plt.xlabel(r"$f$", fontsize='x-large')
