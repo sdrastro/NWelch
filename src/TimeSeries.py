@@ -1,9 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
+from resample.bootstrap import bootstrap
 from scipy.stats import trim_mean
 from finufft import nufft1d3
-from resample.bootstrap import resample
 from scipy.special import iv # modified Bessel function of the first kind
 
 import os
@@ -242,11 +241,11 @@ class TimeSeries:
         self.N_bootstrap = N_bootstrap
         highest_peaks = np.zeros(N_bootstrap)
         # Generator function for resampling
-        sampler = resample(detrended_data, size=N_bootstrap)
+        samples = bootstrap(detrended_data, b=N_bootstrap)
         for i in range(N_bootstrap):
             if (i % 500 == 0):
                 print("Iteration", i)
-            sample = next(sampler)
+            sample = samples[i, :]
             # Use the same windowing scheme as in the original FT / power spectrum
             sample = sample * self.win_coeffs
             sample_ft = nfft(self.t, sample, self.fgrid)
@@ -624,19 +623,19 @@ class TimeSeries:
             print("Not a valid bootstrap simulation. To run, set integer N_Welch_bootstrap >= 100")
             return
         
-        obs_original = copy.deepcopy(self.obs)
-        Welch_pow_original = copy.deepcopy(self.Welch_pow)
+        obs_original = np.copy(self.obs)
+        Welch_pow_original = np.copy(self.Welch_pow)
         self.N_Welch_bootstrap = N_Welch_bootstrap
         highest_peaks = np.zeros(N_Welch_bootstrap)
 
         indices = range(self.N)
-        sampler = resample(indices, size=N_Welch_bootstrap)
+        samples = bootstrap(indices, b=N_Welch_bootstrap)
 
         # Start the loop
         for i in range(N_Welch_bootstrap):
             if (i % 500 == 0):
                 print("Iteration", i)
-            perm = next(sampler)
+            perm = samples[i, :]
             self.obs = obs_original[perm]
             self.Welch_powspec(trend=self.Welch_trend, mode=self.mode)
             highest_peaks[i] = np.max(self.Welch_pow)

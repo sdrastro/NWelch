@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import copy
-from resample.bootstrap import resample
+from resample.bootstrap import bootstrap
 from scipy import stats
+from copy import deepcopy
 
 # Bivariate is built on TimeSeries class; import here
 from NWelch import TimeSeries
@@ -252,20 +252,20 @@ class Bivariate:
             print("Not a valid bootstrap simulation. To run, set integer N_bootstrap >= 100")
             return
         
-        x_original = copy.deepcopy(self.x_series)
-        y_original = copy.deepcopy(self.y_series)
-        coh_original = copy.deepcopy(self.coh)
-        coh_raw_original = copy.deepcopy(self.coh_raw)
-        coh_transformed_original = copy.deepcopy(self.coh_transformed)
-        cross_original = copy.deepcopy(self.cross)
-        phase_original = copy.deepcopy(self.phase)
-        cross_mag_original = copy.deepcopy(self.cross_mag)
-        coh_prob_5_original = copy.deepcopy(self.coh_prob_5)
-        coh_prob_1_original = copy.deepcopy(self.coh_prob_1)
-        coh_prob_01_original = copy.deepcopy(self.coh_prob_01)
-        ncrossperR_5_original = copy.deepcopy(self.ncrossperR_5)
-        ncrossperR_1_original = copy.deepcopy(self.ncrossperR_1)
-        ncrossperR_01_original = copy.deepcopy(self.ncrossperR_01)
+        x_original = deepcopy(self.x_series)
+        y_original = deepcopy(self.y_series)
+        coh_original = np.copy(self.coh)
+        coh_raw_original = np.copy(self.coh_raw)
+        coh_transformed_original = np.copy(self.coh_transformed)
+        cross_original = np.copy(self.cross)
+        phase_original = np.copy(self.phase)
+        cross_mag_original = np.copy(self.cross_mag)
+        coh_prob_5_original = np.copy(self.coh_prob_5)
+        coh_prob_1_original = np.copy(self.coh_prob_1)
+        coh_prob_01_original = np.copy(self.coh_prob_01)
+        ncrossperR_5_original = np.copy(self.ncrossperR_5)
+        ncrossperR_1_original = np.copy(self.ncrossperR_1)
+        ncrossperR_01_original = np.copy(self.ncrossperR_01)
 
         self.N_coh_bootstrap = N_coh_bootstrap
         N_coh_f = self.nf + 1
@@ -279,15 +279,15 @@ class Bivariate:
         ncrossingsperR_boot_01 = np.zeros(N_coh_bootstrap)
 
         indices = range(self.x_series.N)
-        sampler = resample(indices, size=2*N_coh_bootstrap)
+        samples = bootstrap(indices, b=2*N_coh_bootstrap)
 
         # Start the loop
         for i in range(N_coh_bootstrap):
             if (i % 500 == 0):
                 print("Iteration", i)
-            perm = next(sampler)
+            perm = samples[2*i, :]
             self.x_series.obs = x_original.obs[perm]
-            perm = next(sampler)
+            perm = samples[2*i+1, :]
             self.y_series.obs = y_original.obs[perm]
             self.Welch_coherence_powspec(trend=self.trend, trend_type=self.trend_type)
             coh_noise[i,:] = self.coh
@@ -516,7 +516,7 @@ class Bivariate:
         where_meaningful = np.where(self.coh > threshold)[0]
         plt.figure(figsize=(9,5))
         plt.plot(self.pow_coh_grid[2:], ph[2:], color='mediumblue', lw=0.8, ls=':')
-        plt.scatter(self.pow_coh_grid[where_meaningful], self.phase[where_meaningful], \
+        plt.scatter(self.pow_coh_grid[where_meaningful], ph[where_meaningful], \
                  color='mediumblue', label=r"Significant $\widehat{C}^2_{xy}(f)$", s=5)
         plt.xlabel(r"$f$", fontsize='x-large')
         plt.ylabel(r"$\widehat{\phi}_{xy}(f)$", fontsize='x-large')
