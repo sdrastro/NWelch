@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Build on existing NWelch code
+import sys
+sys.path.insert(0, '/Users/sdr/NWelch/src/')
 from TimeSeries import TimeSeries
 from Bivariate import Bivariate
 
@@ -34,9 +36,11 @@ def dual_frequency(data):
     if output_type == 'autocoherence':
         Fourier_coeffs1 = data.Welch_Fourier_coeffs
         Fourier_coeffs2 = data.Welch_Fourier_coeffs
+        nf = data.Welch_nf
     else:
         Fourier_coeffs1 = data.x_series.Welch_Fourier_coeffs
         Fourier_coeffs2 = data.y_series.Welch_Fourier_coeffs
+        nf = data.x_series.Welch_nf
                 
     dual_cross = []
     for k in range(data.Nseg):
@@ -46,4 +50,5 @@ def dual_frequency(data):
     dual_auto  = np.outer(np.mean(np.abs(Fourier_coeffs1)**2, axis=0), \
                           np.mean(np.abs(Fourier_coeffs2)**2, axis=0))
 
-    return np.abs(dual_cross_mean)**2 / dual_auto
+    dual_coh = np.abs(dual_cross_mean)**2 / dual_auto
+    return dual_coh[nf:, nf:]
