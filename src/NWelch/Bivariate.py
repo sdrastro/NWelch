@@ -5,7 +5,7 @@ from scipy import stats
 from copy import deepcopy
 
 # Bivariate is built on TimeSeries class; import here
-from NWelch import TimeSeries
+from TimeSeries import TimeSeries
 
 # ***Lambda function for theoretical coherence false alarm thresholds***
 #    equation from Schulz & Stattegger 1997
@@ -41,8 +41,8 @@ class Bivariate:
             print("No bivariate object created")
             return
         # Create pair of TimeSeries objects
-        self.x_series = TimeSeries.TimeSeries(t, x, display_frequency_info=display_frequency_info)
-        self.y_series = TimeSeries.TimeSeries(t, y, display_frequency_info=False)
+        self.x_series = TimeSeries(t, x, display_frequency_info=display_frequency_info)
+        self.y_series = TimeSeries(t, y, display_frequency_info=False)
         self.segmented = False # Data aren't segmented yet
         self.coh = None
         self.N_coh_bootstrap = 0
@@ -115,8 +115,8 @@ class Bivariate:
         xycross = []
         for i in range(self.Nseg):
             sg = range(self.segments[i,0], self.segments[i,1])
-            x_seg = TimeSeries.TimeSeries(self.x_series.t[sg], self.x_series.obs[sg], display_frequency_info=False)
-            y_seg = TimeSeries.TimeSeries(self.y_series.t[sg], self.y_series.obs[sg], display_frequency_info=False)
+            x_seg = TimeSeries(self.x_series.t[sg], self.x_series.obs[sg], display_frequency_info=False)
+            y_seg = TimeSeries(self.y_series.t[sg], self.y_series.obs[sg], display_frequency_info=False)
             x_seg.nf = self.nf
             y_seg.nf = self.nf
             x_seg.fgrid = self.fgrid

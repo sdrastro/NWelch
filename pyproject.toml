@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "NWelch"
+version = "1.2.8"
+authors = [
+  { name="Sarah Dodson-Robinson", email="sdr@udel.edu" },
+]
+description = "Spectral and cross-spectral analysis for time series with uneven sampling"
+readme = "README.md"
+requires-python = ">=3.6"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+  "numpy",
+  "scipy",
+  "matplotlib",
+  "resample",
+  "finufft>=2.3.0",
+]
+license = {file = "LICENSE"}
+
+[project.urls]
+Homepage = "https://github.com/sdrastro/NWelch/tree/main"
+Issues = "https://github.com/sdrastro/NWelch/issues"

@@ -535,6 +535,7 @@ class TimeSeries:
         # Get power spectrum associated with each segment
         autospec = []
         fft_input_data = []
+        Welch_Fourier_coeffs = []
         for i in range(self.Nseg):
             sg = range(self.segments[i,0], self.segments[i,1])
             time = self.t[sg] - self.t[sg[0]]
@@ -563,9 +564,10 @@ class TimeSeries:
             fft_input_data.append(data)
             # Segment transform (not normalized)
             seg_ft = nfft(time, data, self.Welch_fgrid)
+            Welch_Fourier_coeffs.append(seg_ft)
             # Compute the power spectrum
             autospec.append(self.s_weights[i] * np.abs(seg_ft[self.Welch_nf:])**2)
-
+            self.Welch_Fourier_coeffs = Welch_Fourier_coeffs
         # The Welch's power spectrum estimate
         if mode == 'mean':
             self.Welch_pow = np.mean(np.array(autospec), axis=0) / np.sum(self.s_weights)
