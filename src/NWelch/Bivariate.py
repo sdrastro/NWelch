@@ -5,7 +5,7 @@ from scipy import stats
 from copy import deepcopy
 
 # Bivariate is built on TimeSeries class; import here
-from TimeSeries import TimeSeries
+from NWelch.TimeSeries import TimeSeries
 
 # ***Lambda function for theoretical coherence false alarm thresholds***
 #    equation from Schulz & Stattegger 1997
