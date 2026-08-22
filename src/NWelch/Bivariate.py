@@ -6,6 +6,7 @@ from copy import deepcopy
 
 # Bivariate is built on TimeSeries class; import here
 from NWelch.TimeSeries import TimeSeries
+from NWelch.input_checks import *
 
 # ***Lambda function for theoretical coherence false alarm thresholds***
 #    equation from Schulz & Stattegger 1997
@@ -59,14 +60,18 @@ class Bivariate:
         #    since python's ranges don't include the final element 
         #    (i.e. arr[0:4] = [arr[0], arr[1], arr[2], arr[3]] but arr[4] is left out)
         # Set quiet=True to squelch printout of segment and resolution information
+
+        # Check Bool keywords (other checks are handled by TimeSeries class)
+        quiet = check_Bool(quiet, False)
+        plot_windows = check_Bool(plot_windows, False)
+
+        # Segment data
         self.x_series.segment_data(seg, Nyquist, oversample=oversample, \
              window=window, plot_windows=plot_windows, quiet=quiet)
-        try:
-            if not self.x_series.segmented:
-                raise ValueError
-        except ValueError:
+        if not check_segmented(self.x_series.segmented):
             print("Segmentation failed - try again.")
             return
+
         self.y_series.segment_data(seg, Nyquist, oversample=oversample, \
              window=window, plot_windows=False, quiet=True)
         self.segmented = True
@@ -82,11 +87,7 @@ class Bivariate:
 # ***Return the boundaries of the Welch's segments and the effective number of
 #    segments (useful if they are computed automatically by NWelch)***
     def get_segments(self):
-        try:
-            if not self.segmented:
-                raise ValueError
-        except ValueError:
-            print("Error: data not segmented. Use segment_data() to define segments.")
+        if not check_segmented(self.segmented)):
             return
         return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
         
@@ -97,15 +98,12 @@ class Bivariate:
     def Welch_coherence_powspec(self, trend=True, trend_type='linear'):
         # set trend=True to detrend data as in TimeSeries.pow_FT()
         # set trend_type to choose linear or quadratic detrending
-        if not self.segmented:
-            print("You must call segment_data() before computing coherence")
-            return
         
-        valid_trend_type = ((trend_type == 'linear') or (trend_type == 'quadratic'))
-        if not valid_trend_type:
-            print("Trend type not understood. Options are 'linear' or 'quadratic'.")
-            print('Defaulting to linear trend')
-            trend_type == 'linear'
+        if not check_segmented(self.segmented):
+            return
+
+        trend_type = trend_check(trend_type)
+        trend = check_Bool(trend, True)
 
         # Get non-normalized Welch's autospectra for coherence denominator
         self.x_series.Welch_powspec(trend=trend, trend_type=trend_type, norm=False)
@@ -170,12 +168,7 @@ class Bivariate:
 #      has inverse hyperbolic arctangent transformation applied, coh_debiased has debiasing 
 #      but no transformation, and coh_raw has neither debiasing nor transformation.
     def get_coherence(self):
-        try:
-            if (self.coh is None):
-                raise ValueError
-        except ValueError:
-            print("Error: Coherence not computed.")
-            print("Use Welch_coherence_powspec() to compute coherence.")
+        if not check_coherence(self.coh):
             return
         return {'frequency': self.pow_coh_grid, 'coh_raw': self.coh_raw,
                 'coh_debiased': self.coh, 'coh_transformed': self.coh_transformed}
@@ -185,12 +178,8 @@ class Bivariate:
 #    Useful if you want to work with it outside of NWelch
 #    If unwrapped == True, use np.unwrap() to remove discontinuities in phase
     def get_phase(self, unwrapped=True):
-        try:
-            if (self.coh is None):
-                raise ValueError
-        except ValueError:
-            print("Error: Coherence and phase not computed.")
-            print("Use Welch_coherence_powspec() to compute coherence and phase.")
+        unwrapped = check_Bool(unwrapped, True)
+        if not check_coherence(self.coh):
             return
         if unwrapped:
             return {'frequency': self.pow_coh_grid, 'phase': np.unwrap(self.phase, period=360)}
@@ -200,12 +189,7 @@ class Bivariate:
 # ***Return cross spectrum as dictionary of {frequency, cross-spectrum}***
 #    Useful if you want to work with it outside of NWelch
     def get_cross_spectrum(self):
-        try:
-            if (self.coh is None):
-                raise ValueError
-        except ValueError:
-            print("Error: cross-spectrum not computed.")
-            print("Use Welch_coherence_powspec() to compute cross-spectrum and coherence.")
+        if not check_coherence(self.coh):
             return
         return {'frequency': self.pow_coh_grid, 'cross_spectrum': self.cross}
         
@@ -215,13 +199,9 @@ class Bivariate:
     # Set tri=True to search for up to 3 periodic signals; default is tri=False,
     #    which is optimized to search for 2 (i.e. rotation and harmonic)
     #    tri=True has higher risk of mistaking noise for periodicity than tri=False
-        try:
-            coh_calculated = (self.coh is not None)
-            if not coh_calculated:
-                raise ValueError
-        except ValueError:
-            print("You must call Welch_coherence_powspec() before performing Siegel's test")
+        if not check_coherence(self.coh):
             return
+        tri = check_Bool(tri, False)
         print("Siegel's test on Sxx:")
         self.x_series.Siegel_test(Welch=True, tri=tri)
         print("Siegel's test on Syy:")
@@ -237,20 +217,14 @@ class Bivariate:
         #    shuffled data (useful if you want to examine the noise properties later)
         # White noise bootstrap implemented here is similar to Pardo-Igu'zquiza and 
         #    Rodri'guez-Tovar (2012)
-        try:
-            coh_calculated = (self.coh is not None)
-            if not coh_calculated:
-                raise ValueError
-        except ValueError:
-            print("You must calculate a coherence estimate before starting the bootstrap")
+        if not check_coherence(self.coh):
             return
-        try:
-            valid_N_bootstrap = ((type(N_coh_bootstrap) is int) and (N_coh_bootstrap >= 100))
-            if not valid_N_bootstrap:
-                raise ValueError
-        except ValueError:
-            print("Not a valid bootstrap simulation. To run, set integer N_bootstrap >= 100")
+        N_coh_bootstrap = check_bootstrap(N_coh_bootstrap)
+        if N_coh_bootstrap <= 100:
             return
+
+        save_noise = check_Bool(save_noise, False)
+        print_crossings = check_Bool(print_crossings, False)
         
         x_original = deepcopy(self.x_series)
         y_original = deepcopy(self.y_series)
@@ -365,7 +339,7 @@ class Bivariate:
               
 
 # ***Plot coherence***
-    def coh_plot(self, transformed=True, show_theoretical_thresholds=False, show_boot_thresholds=True, vlines=[], lw=0.8):
+    def coh_plot(self, transformed=True, show_theoretical_thresholds=True, show_boot_thresholds=True, vlines=[], lw=0.8):
         # set transformed=True to plot the arctanh-transformed version of coherence
         #    transformed=False will plot the non-transformed version
         # set show_theoretical_thresholds=True to put the
@@ -375,13 +349,13 @@ class Bivariate:
         #    coherence thresholds on the plot
         # use vlines keyword to add vertical lines to the plot
         # use lw keyword to change linewidth on plot
-        try:
-            cant = (self.coh is None)
-            if cant:
-                raise ValueError
-        except ValueError:
-            print("Call Welch_coherence_powspec() to calculate coherence before plotting")
+        if not check_coherence(self.coh):
             return
+        transformed = check_Bool(transformed, True)
+        show_theoretical_thresholds = check_Bool(show_theoretical_thresholds, True)
+        show_boot_thresholds = check_Bool(show_boot_thresholds, True)
+        lw = check_linewidth(lw)
+
         if transformed:
             y = self.coh_transformed
             ylabel = r"$z(f)$"
@@ -421,19 +395,15 @@ class Bivariate:
                 plt.plot(self.pow_coh_grid[2:], boot01[2:], color='crimson', ls=':', label='bootstrap 0.1%')
         if (show_theoretical_thresholds or show_boot_thresholds):
             plt.legend(bbox_to_anchor=(1.02, 0.9), title='FAPs', fontsize='small')
-        for v in vlines:
-            plt.axvline(v, color='gray', linestyle=':')
+        if check_vlines(vlines):
+            for v in vlines:
+                plt.axvline(v, color='gray', linestyle=':')
             
 # ***Plot a Welch's periodogram***
     def Welch_pow_plot(self, x_or_y='x', show_boot_thresholds=True, yscale='log10', vlines=[], lw=0.8):
         # x_or_y='x' plots x(t) Welch's periodogram; x_or_y='y' plots y(t) Welch's periodogram
         # set show_boot_thresholds=True to plot the bootstrap false alarm thresholds
-        try:
-            cant = self.x_series.Welch_pow is None
-            if cant:
-                raise ValueError
-        except ValueError:
-            print("Call Welch_coherence_powspec() to calculate Welch's periodograms before plotting")
+        if not check_Welch_power(self.x_series.Welch_pow):
             return
         try:
             good_xory = ((x_or_y == 'x') or (x_or_y == 'y'))
@@ -454,13 +424,10 @@ class Bivariate:
     def cross_plot(self, vlines=[], lw=0.8):
         # vlines: add vertical lines to plot
         # lw: change linewidth
-        try:
-            cant = self.coh is None
-            if cant:
-                raise ValueError
-        except ValueError:
-            print("Call Welch_coherence_powspec() to calculate cross-spectrum before plotting")
+        if not check_coh(self.coh):
             return
+        lw = check_linewidth(lw)
+        valid_vlines = check_vlines(vlines)
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(9,6))
         ax1.plot(self.fgrid, self.cross.real, color='dodgerblue', lw=lw)
         ax1.set_ylabel(r"$\Re( \mathcal{F}\{ x_t \star y_t \})$")
@@ -469,9 +436,10 @@ class Bivariate:
         ax2.set_ylabel(r"$\Im( \mathcal{F}\{ x_t \star y_t \})$")
         ax2.set_xlabel(r"$f$", fontsize='x-large')
         ax2.grid(color='0.85')
-        for v in vlines:
-            ax1.axvline(v, color='gray', linestyle=':')
-            ax2.axvline(v, color='gray', linestyle=':')
+        if valid_vlines:
+            for v in vlines:
+                ax1.axvline(v, color='gray', linestyle=':')
+                ax2.axvline(v, color='gray', linestyle=':')
 
         
 # ***Plot the phase spectrum***
@@ -485,13 +453,10 @@ class Bivariate:
         # vlines is list of frequencies at which to add vertical lines to the plot
         # unwrapped: uses np.unwrap() to create continuous phase spectra that don't jump from
         #    -180 to 180 or vice versa
-        try:
-            cant = self.coh is None
-            if cant:
-                raise ValueError
-        except ValueError:
-            print("Call Welch_coherence_powspec() to calculate phase spectrum before plotting")
+        if not check_coherence(self.coh):
             return
+        unwrapped = check_Bool(unwrapped, True)
+        valid_vlines = check_vlines(vlines)
         valid_fal = ['analytical5', 'analytical1', 'analytical01', 'boot5', 'boot1', 'boot01']
         if not fal in valid_fal:
             print("Warning: invalid false alarm level selected.")
@@ -522,20 +487,16 @@ class Bivariate:
         plt.ylabel(r"$\widehat{\phi}_{xy}(f)$", fontsize='x-large')
         plt.legend(loc="best")
         plt.grid(color='0.85')
-        for v in vlines:
-            plt.axvline(v, color='gray', linestyle=':')
+        if valid_vlines:
+            for v in vlines:
+                plt.axvline(v, color='gray', linestyle=':')
 
         
 # ***Save all Bivariate results (coherence, Welch's periodograms,
 #    false alarm thresholds, bandwidth, resolution, etc.)
     def save_results(self, filename):
         # filename: name of output file
-        try:
-            no_results = (self.coh is None)
-            if no_results:
-                raise ValueError
-        except ValueError:
-            print("No results to save - call Welch_coherence_powspec() first")
+        if not check_coherence(self.coh):
             return
         header = "Bivariate results" + \
                  "\nNyquist frequency: {}".format(self.pow_coh_grid[-1]) + \
@@ -576,4 +537,7 @@ class Bivariate:
                 header = header + ",coh_boot_FAP_01,coh_transformed_boot_FAP_01"
                 output = np.column_stack((output, self.coh_boot_01, self.coh_transformed_boot_01))
 
-        np.savetxt(filename, output, fmt='%.8e', delimiter=',', header=header)
+        if check_string(filename):
+            np.savetxt(filename, output, fmt='%.8e', delimiter=',', header=header)
+        else:
+            print('Bad filename. No results saved.')

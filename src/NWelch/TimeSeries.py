@@ -4,6 +4,7 @@ from resample.bootstrap import bootstrap
 from scipy.stats import trim_mean
 from finufft import nufft1d3
 from scipy.special import iv # modified Bessel function of the first kind
+from NWelch.input_checks import *
 
 import os
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
@@ -96,6 +97,10 @@ class TimeSeries:
         #     axis labels
         plt.figure(figsize=(7,5))
         plt.scatter(self.t, self.obs.real, color='k', edgecolor='k', alpha=0.6)
+        if not check_string(xlabel):
+            xlabel="Time"
+        if not check_string(ylabel):
+            ylabel="Data"
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
         plt.grid(color='0.85')
@@ -127,20 +132,15 @@ class TimeSeries:
         #     computed when the time series object was constructed, or something else entirely.
         # With the oversample keyword, the user can go above (or below) the Rayleigh resolution:
         #     the frequency grid spacing is self.Rayleigh / oversample
-        try:
-            if Nyquist < 0:
-                raise ValueError
-        except ValueError:
-            print("Nyquist frequency must be float > 0 - no frequency grid calculated")
+
+        # Check for valid Nyquist frequency
+        if not check_Nyquist(Nyquist):
             return
-        try:
-            good_oversample = (((type(oversample) is int) or (type(oversample) is float)) \
-                              and (oversample > 0))
-            if not good_oversample:
-                raise ValueError
-        except ValueError:
-            print("Oversample must be number > 0 - no frequency grid calculated")
+
+        # Check for valid oversample keyword
+        if not check_oversample(oversample):
             return
+
         df = self.Rayleigh / oversample
         self.nf = int(Nyquist // df) # Number of POSITIVE (non-zero) frequencies in the grid
         if (self.nf % 2) != 0: # make sure zero frequency is included
@@ -174,22 +174,18 @@ class TimeSeries:
             print("You must call frequency_grid() before calling pow_FT()")
             print("No Fourier transform or power spectrum calculated")
             return
-        
-        try:
-            valid_window = ((window == 'BlackmanHarris') or (window == 'KaiserBessel') or (window == 'None'))
-            if not valid_window:
-                raise ValueError
-        except ValueError:
-            print("Invalid window type. Choose either window='BlackmanHarris',")
-            print("window='KaiserBessel', or window='None'. Default is 'None';")
-            print("set to 'None' for standard Lomb-Scargle-type periodogram.")
-            return
-        
-        valid_trend_type = ((trend_type == 'linear') or (trend_type == 'quadratic'))
-        if not valid_trend_type:
-            print("Trend type not understood. Options are 'linear' or 'quadratic'.")
-            print('Defaulting to linear trend')
-            trend_type = 'linear'
+
+        # Check for valid window type
+        window = window_check(window)
+
+        # Check validity of Boolean keywords
+        trend = check_Bool(trend, True)
+        norm = check_Bool(norm, True)
+        quiet = check_Bool(quiet, False)
+        save_noise = check_Bool(save_noise, False)
+
+        # Check for valid trend type
+        trend_type = trend_check(trend_type)
         
         # Center data by subtracting off mean
         datamean = np.mean(self.obs)
@@ -229,17 +225,10 @@ class TimeSeries:
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
-        try:
-            valid_N_bootstrap = ((type(N_bootstrap) is int) and (N_bootstrap >= 100))
-            if not valid_N_bootstrap:
-                raise ValueError
-        except ValueError:
-            if not quiet:
-                print("Bootstrap off. To turn on, set integer N_bootstrap >= 100")
-            self.N_bootstrap = 0
-            return
+        N_bootstrap = check_bootstrap(N_bootstrap)
         self.N_bootstrap = N_bootstrap
         highest_peaks = np.zeros(N_bootstrap)
+
         # Generator function for resampling
         samples = bootstrap(detrended_data, b=N_bootstrap)
         for i in range(N_bootstrap):
@@ -264,12 +253,8 @@ class TimeSeries:
     #    {'frequency', 'periodogram'} so user can work with it
     #    outside of NWelch***
     def get_periodogram(self):
-        try:
-            if (self.power is None):
-                raise ValueError
-        except ValueError:
-            print("Error: periodogram not computed.")
-            print("Use pow_FT() to compute Fourier coefficients and periodogram.")
+        computed = check_power(self.power)
+        if not computed:
             return
         return {'frequency': self.powfgrid, 'periodogram': self.power}
     
@@ -280,12 +265,8 @@ class TimeSeries:
     #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
     #    about zero (includes negative frequencies).***
     def get_Fourier(self):
-        try:
-            if (self.power is None):
-                raise ValueError
-        except ValueError:
-            print("Error: Fourier coefficients not computed.")
-            print("Use pow_FT() to compute Fourier coefficients and periodogram.")
+        computed = check_power(self.power)
+        if not computed:
             return
         return {'frequency_symmetric':self.fgrid, 'Fourier_coeffs':self.ft}
     
@@ -293,18 +274,14 @@ class TimeSeries:
     # ***Return the window coefficients as a dictionary of 
     #    {'window_type', 'coefficients'} so user can work with them outside of NWelch***
     def get_window(self):
-        try:
-            if (self.power is None):
-                raise ValueError
-        except ValueError:
-            print("Error: window coefficients not computed.")
-            print("Use pow_FT() to set the window coefficients and compute the periodogram.")
+        computed = check_power(self.power)
+        if not computed:
             return
         return {'window_type': self.window, 'coefficients': self.win_coeffs}
             
             
     # ***Break the time series into segments in preparation for Welch's algorithm***
-    def segment_data(self, seg, Nyquist, oversample=6, window='None', plot_windows=False, quiet=False):
+    def segment_data(self, seg, Nyquist, oversample=4, window='None', plot_windows=False, quiet=False):
         # As above, Nyquist is the maximum frequency desired for the periodogram
         # window is type of window to apply to each segment: 'None' or 'BlackmanHarris' or 'KaiserBessel'
         # seg is either an integer that defines the number of 50% overlapping segments, or
@@ -320,32 +297,21 @@ class TimeSeries:
         #     It will also warn about Nyquist-like frequencies that may be too high and
         #     segment overlapping.
         #     Set quiet=True to turn off resolution/segment info and warnings.
-        try:
-            good_Nyquist = (Nyquist > 0)
-            if not good_Nyquist:
-                raise ValueError
-        except ValueError:
-            print("Nyquist frequency must be float > 0 - no segmenting performed")
+       
+        # Check for valid Nyquist frequency
+        if not check_Nyquist(Nyquist):
             return
         
-        try:
-            good_oversample = (((type(oversample) is int) or (type(oversample) is float)) \
-                              and (oversample > 0))
-            if not good_oversample:
-                raise ValueError
-        except ValueError:
-            print("Oversample must be number > 0 - no segmenting performed")
+        # Check for valid oversample keyword
+        if not check_oversample(oversample):
             return
         
-        try:
-            valid_window = (((window == 'BlackmanHarris') or (window == 'KaiserBessel')) or (window == 'None'))
-            if not valid_window:
-                raise ValueError
-        except ValueError:
-            print("Invalid window type. Choose either window='BlackmanHarris',")
-            print("window='KaiserBessel', or window='None'. Default is 'None';")
-            print("choose 'None' for standard Lomb-Scargle-type periodogram.")
-            return
+        # Check for valid window type
+        window = window_check(window)
+
+        # Check Boolean keywords
+        plot_windows = check_Bool(plot_windows, False)
+        quiet = check_Bool(quiet, False)
         
         # Window settings
         self.Welch_window = window
@@ -448,15 +414,6 @@ class TimeSeries:
             bandwidths.append(B_6dB * seg_Rayleigh) 
         self.Welch_band = np.sum(self.s_weights*bandwidths) / np.sum(self.s_weights)
         self.Welch_Rayleigh = np.min(Rayleighs)
-
-        '''
-        # Check that user input Nyquist frequency is valid for all segments, adjust if necessary
-        max_Nyq_possible = np.min(Nyq_medians)
-        if (Nyquist > max_Nyq_possible):
-            Nyquist = max_Nyq_possible
-            if not quiet:
-                print("Your Nyquist frequency is too high. Adjusting...")
-        '''
             
         # Build frequency grid for Welch's periodogram calculation
         if (Nyquist > self.Nyq_meddt) and (not quiet):
@@ -502,11 +459,7 @@ class TimeSeries:
     # ***Return the boundaries of the Welch's segments and the effective number of
     #    segments (useful if they are computed automatically by NWelch)***
     def get_segments(self):
-        try:
-            if not self.segmented:
-                raise ValueError
-        except ValueError:
-            print("Error: data not segmented. Use segment_data() to define segments.")
+        if not check_segmented(self.segmented):
             return
         return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
                             
@@ -522,15 +475,16 @@ class TimeSeries:
         # Default mode='mean' computes the Welch's power spectrum
         #    estimate by averaging individual segment estimates;
         #    mode='median' uses median of the segment estimates
-        if not self.segmented:
-            print("You must call segment_data() before computing a Welch's power spectrum estimate")
+
+        if not check_segmented(self.segmented):
             return
         
-        valid_trend_type = ((trend_type == 'linear') or (trend_type == 'quadratic'))
-        if not valid_trend_type:
-            print("Trend type not understood. Options are 'linear' or 'quadratic'.")
-            print('Defaulting to linear trend')
-            trend_type = 'linear'
+        # Check trend type
+        trend_type = trend_check(trend_type)
+
+        # Check Boolean keywords
+        trend = check_Bool(trend, True)
+        norm = check_Bool(norm, True)
 
         # Get power spectrum associated with each segment
         autospec = []
@@ -591,12 +545,8 @@ class TimeSeries:
     # ***Return the Welch's power spectrum estimate as dictionary of
     #    {'frequency', 'Welch_power'}***
     def get_Welch(self):
-        try:
-            if (self.Welch_pow is None):
-                raise ValueError
-        except ValueError:
-            print("Error: Welch's power spectrum estimate not computed.")
-            print("Use Welch_powspec() first.")
+        computed = check_Welch_power(self.Welch_pow)
+        if not computed:
             return
         return {'frequency':self.Welch_powgrid, 'Welch_power':self.Welch_pow}
                             
@@ -610,20 +560,19 @@ class TimeSeries:
         #    shuffled data (useful if you want to examine the noise properties later)
         # White noise bootstrap implemented here is similar to Pardo-Igu'zquiza and 
         #    Rodri'guez-Tovar (2012)
-        try:
-            Welch_not_calculated = (self.Welch_pow is None)
-            if Welch_not_calculated:
-                raise ValueError
-        except ValueError:
-            print("Use Welch_powspec() to calculate a Welch's power spectrum estimate before starting the bootstrap")
+
+        # Make sure the Welch's power spectrum estimate has been computed
+        computed = check_Welch_power(self.Welch_pow)
+        if not computed:
             return
-        try:
-            valid_N_bootstrap = ((type(N_Welch_bootstrap) is int) and (N_Welch_bootstrap >= 100))
-            if not valid_N_bootstrap:
-                raise ValueError
-        except ValueError:
-            print("Not a valid bootstrap simulation. To run, set integer N_Welch_bootstrap >= 100")
+
+        # Check for valid number of bootstrap iterations
+        N_Welch_bootstrap = check_bootstrap(N_Welch_bootstrap)
+        if N_Welch_bootstrap == 0:
             return
+
+        # Check Boolean keyword
+        save_noise = check_Bool(save_noise, False)
         
         obs_original = np.copy(self.obs)
         Welch_pow_original = np.copy(self.Welch_pow)
@@ -668,22 +617,19 @@ class TimeSeries:
     #    which is optimized to search for 2 (i.e. rotation and harmonic)
     #    tri=True has higher risk of mistaking noise for periodicity than tri=False
     def Siegel_test(self, Welch=False, tri=False):
-        if not Welch:
-            try:
-                no_periodogram = (self.power is None)
-                if no_periodogram:
-                    raise ValueError
-            except ValueError:
-                print("Use pow_FT() to compute a periodogram before running Siegel's test")
+
+        # Check for valid Boolean keywords
+        Welch = check_Bool(Welch, False)
+        tri = check_Bool(tri, False)
+
+        # Check that the power spectrum estimate has been computed
+        if Welch:
+            if not check_Welch_power(self.Welch_pow):
                 return
         else:
-            try:
-                no_Welch = (self.Welch_pow is None)
-                if no_Welch: 
-                    raise ValueError
-            except ValueError:
-                print("Use Welch_powspec() to compute a periodogram before running Siegel's test")
+            if not check_power(self.power):
                 return
+
         alpha = 0.05 # null hypothesis will be rejected at 5% level
         if not Welch:
             numf = len(self.powfgrid)
@@ -720,20 +666,16 @@ class TimeSeries:
         # Set plot=False to turn off plotting
         # For y-axis scale, choices are 'log10' or 'linear'
         # To save results, set the outfile keyword to the desired name of the output file
-        try:
-            no_power = (self.power is None)
-            if no_power:
-                raise ValueError
-        except ValueError:
-            print("You must estimate the power spectrum with pow_FT() before computing the spectral window.")
+
+        # Check that window and power spectrum estimate are computed
+        if not check_power(self.power):
             return
-        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
-        if not valid_y:      
-            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
-            yscale='log10'
+        
+        # Check for valid yscale keyword
+        yscale = check_plot_scale(yscale)
+
         winfunc = np.abs(nfft(self.t, self.win_coeffs.astype(complex), self.fgrid))**2
         winfunc_norm = np.sum(winfunc * self.powfgrid[1])
-        # winfunc /= np.max(winfunc)
         winfunc /= winfunc_norm
         self.window_function = winfunc
         # 6-dB bandwidth
@@ -750,15 +692,17 @@ class TimeSeries:
             plt.ylabel(r"$W(f)$", fontsize='x-large')
             plt.title('Periodogram spectral window: ' + self.window)
             plt.grid(color='0.85')
+
+        # Check outfile keyword
         if (outfile == "None"):
             print("Single-window results not saved") 
         else:
             try:
-                good_filename = (type(outfile) is str)
-                if not good_filename:
+                if not check_string(outfile):
                     raise TypeError
             except TypeError:
                 print("Bad output file name - no results saved")
+
                 return {'frequency_symmetric':self.fgrid, 'spectral_window':self.window_function}
             header = "Spectral window\nMeasured half main lobe width: {}".format(bw) + "\nfrequency power"
             np.savetxt(outfile, np.column_stack((self.fgrid, winfunc)), header=header)
@@ -776,17 +720,14 @@ class TimeSeries:
         # For y-axis scale, choices are 'log10' or 'linear'
         # If plot=True, you will get a plot of the spectral window
         # To save the spectral window, set outfile keyword to desired filename
-        try:
-            no_results = (self.Welch_pow is None)
-            if no_results:
-                raise ValueError
-        except ValueError:
-            print("No Welch's power spectrum - call Welch_powspec() first")
+
+        # Check that the Welch's power spectrum estimate was computed
+        if not check_Welch_power(self.Welch_pow):
             return
-        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
-        if not valid_y:      
-            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
-            yscale='log10'
+
+        # Check for valid plot scale keyword
+        yscale = check_plot_scale(yscale)
+
         seg_windows = []
         for i in range(self.Nseg):
             sg = range(self.segments[i,0], self.segments[i,1])
@@ -823,7 +764,7 @@ class TimeSeries:
             print("Welch average spectral window not saved to file") 
         else:
             try:
-                good_filename = (type(outfile) is str)
+                good_filename = check_string(outfile)
                 if not good_filename:
                     raise TypeError
                 else:
@@ -844,12 +785,7 @@ class TimeSeries:
     def Ftplot(self, vlines=[], lw=0.8):
         # Use vlines keyword to add vertical lines to the plot
         # Use lw keyword to change linewidth
-        try:
-            cant_plot = (self.ft is None)
-            if cant_plot:
-                raise ValueError
-        except ValueError:
-            print("Can't plot - no Fourier transform computed")
+        if not check_power(self.power):
             return
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10,6))
         ax1.plot(self.fgrid, self.ft.real, color="mediumblue", lw=lw)
@@ -859,11 +795,12 @@ class TimeSeries:
         ax2.set_ylabel(r"$\Im (\mathcal{F}\{x_t\})$")
         ax2.set_xlabel(r"$f$", fontsize='x-large')
         ax2.grid(color='0.85')
-        for v in vlines:
-            ax1.axvline(v, color='k', linestyle=':')
-            ax1.axvline(-v, color='k', linestyle=':')
-            ax2.axvline(v, color='k', linestyle=':')
-            ax2.axvline(-v, color='k', linestyle=':')
+        if check_vlines(vlines):
+            for v in vlines:
+                ax1.axvline(v, color='k', linestyle=':')
+                ax1.axvline(-v, color='k', linestyle=':')
+                ax2.axvline(v, color='k', linestyle=':')
+                ax2.axvline(-v, color='k', linestyle=':')
                       
         
     # ***Plot the power spectrum***
@@ -875,18 +812,28 @@ class TimeSeries:
         # use vlines keyword to add vertical lines to the plot
         # use lw keyword to change linewidth
         # assumes white noise
-        try:
-            cant_plot = ((self.power is None) and (self.Welch_pow is None))
-            if cant_plot:
-                raise ValueError
-        except ValueError:
-            print("Compute a standard or Welch's periodogram with pow_FT() or Welch_powspec() before plotting")
-            return
-        valid_y = ((yscale == 'log10') or (yscale == 'linear'))
-        if not valid_y:      
-            print("Invalid setting for plot y-axis scale. Defaulting to log10.")
-            yscale='log10'
-        if (Welch and (self.Welch_pow is not None)):
+
+        # Check that power spectrum estimate has been computed
+        Welch = check_Bool(Welch, False)
+        if Welch:
+            if not check_Welch_power(self.Welch_pow):
+                return
+        else:
+            if not check_power(self.power):
+                return
+
+        # Check for valid keywords
+        yscale = check_plot_scale(yscale)
+        show_thresholds = check_Bool(show_thresholds, True)
+        valid_vlines = check_vlines(vlines)
+        if not check_string(title):
+            print('Invalid plot title.')
+            title = ''
+        if ((not isinstance(lw, float)) or (lw <= 0)):
+            print('Invalid linewidth. Defaulting to 0.8.')
+            lw = 0.8
+
+        if Welch:
             x = self.Welch_powgrid
             y = self.Welch_pow
             if (show_thresholds and (self.N_Welch_bootstrap >= 100)):
@@ -913,8 +860,9 @@ class TimeSeries:
             plt.axhline(f1, color='mediumspringgreen', ls=':', label='bootstrap 1% FAP')
             plt.axhline(f5, color='darkorchid', ls=':', label='bootstrap 5% FAP')
             plt.legend(loc="best", fontsize="small")
-        for v in vlines:
-            plt.axvline(v, color='k', linestyle=':')
+        if valid_vlines:
+            for v in vlines:
+                plt.axvline(v, color='k', linestyle=':')
         plt.xlabel(r"$f$", fontsize='x-large')
         plt.ylabel(r"$\hat{S}(f)$", fontsize='x-large')
         plt.title(title)
@@ -924,20 +872,20 @@ class TimeSeries:
     # ***Save standard periodogram***
     def save_standard(self, filename):
         # filename: name of results file
-        try:
-            no_results = (self.ft is None)
-            if no_results:
-                raise ValueError
-        except ValueError:
-            print("No results to save - call pow_FT() first")
+        
+        # Check that periodogram has been computed
+        if not check_power(self.power):
             return
+
+        # Check for valid filename
         try:
-            good_filename = (type(filename) is str)
+            good_filename = check_string(filename)
             if not good_filename:
                 raise TypeError
         except TypeError:
             print("Bad output file name - no results saved")
             return
+
         header = "Standard, non-uniform FFT-based periodogram" + \
                  "\nChosen Nyquist frequency: {}".format(self.powfgrid[-1]) + \
                  "\nRayleigh resolution: {}".format(self.Rayleigh) + \
@@ -957,20 +905,18 @@ class TimeSeries:
 
     # ***Save Welch's power spectrum estimate***
     def save_Welch(self, filename):
-        try:
-            no_results = (self.Welch_pow is None)
-            if no_results:
-                raise ValueError
-        except ValueError:
-            print("No results to save - call Welch_powspec() first")
+
+        if not check_Welch_power(self.Welch_pow):
             return
+
         try:
-            good_filename = (type(filename) is str)
+            good_filename = check_string(filename)
             if not good_filename:
                 raise TypeError
         except TypeError:
             print("Bad output file name - no results saved")
             return
+
         header = "Welch's power spectrum estimate" + \
                  "\nChosen Nyquist frequency: {}".format(self.Welch_fgrid[-1]) + \
                  "\nRayleigh resolution: {}".format(self.Welch_Rayleigh) + \
