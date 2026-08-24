@@ -4,7 +4,8 @@
 
 
 # Check that a keyword is a string
-check_string = lambda keyword: isinstance(keyword, str)
+def check_string(keyword):
+    return isinstance(keyword, str)
 
 
 # Check for gradient-free red noise model fitting method
@@ -56,15 +57,13 @@ def check_Bool(keyword, default):
 
 
 # Check for valid number of bootstrap iterations
-def check_bootstrap(Nboot):
-     try:
-         valid_N_bootstrap = ((type(Nboot) is int) and (Nboot >= 100))
-         if not valid_N_bootstrap:
-              raise ValueError
-     except ValueError:
-         print("Bootstrap off. To turn on, set integer >= 100")
-         Nboot = 0
-     return Nboot
+def check_bootstrap(Nboot, quiet=True):
+    valid_N_bootstrap = isinstance(Nboot, int) and (Nboot >= 100)
+    if not valid_N_bootstrap:
+        if not quiet:
+            print("Bootstrap off. To turn on, set integer >= 100")
+        Nboot = 0
+    return Nboot
 
 
 # Check if data have been segmented
@@ -131,9 +130,9 @@ def check_Nyquist(Nyquist):
 # Check validity of linear or log plot scale keyword
 def check_plot_scale(scale):
     valid_y = ((scale == 'log10') or (scale == 'linear'))
-        if not valid_y:     
-            print("Invalid setting for y-axis scale. Defaulting to log10.")
-            scale = 'log10'
+    if not valid_y:     
+        print("Invalid setting for y-axis scale. Defaulting to log10.")
+        scale = 'log10'
     return scale
 
 
@@ -143,10 +142,12 @@ def check_vlines(vlines):
     if not isinstance(vlines, list):
         print('vlines keyword must be list')
         valid_vlines = False
-    for vl in vlines:
-        if not ((isinstance(vlines, int) or isinstance(vlines, float)):
-            print('All entries in vlines list must be int or float')
-            valid_vlines = False
+    else:
+        for vl in vlines:
+            valid_vl = isinstance(vl, int) or isinstance(vl, float)
+            if not valid_vl:
+                print('All entries in vlines list must be int or float')
+                valid_vlines = False
     return valid_vlines
     
 
@@ -177,15 +178,29 @@ def check_tol(tol):
 
 
 # Check for valid 2-d objective plot limits (red noise fit)
-def check_oplot_limits(oplot_limits):
-    defaults = np.array([[0.001, 1], [0.5, 1.5]])
+def _check_oplot_limits(oplot_limits, model_type):
+    defaults_pl = np.array([[-3, 0], [-3, 3]])
+    defaults_ar1 = np.array([[0.001, 1], [0.5, 1.5]])
+    if model_type == 'ar1':
+        defaults = defaults_ar1
+    else:
+        defaults = defaults_pl
     if not isinstance(oplot_limits, ndarray):
         print('oplot_limits must be ndarray. Setting defaults.')
         oplot_limits = defaults
     elif oplot_limits.shape != (2,2):
-        print('oplot_limits must be ndarray of [[xlow, xhigh], [ylow, yhigh]]'.)
+        print('oplot_limits must be ndarray of [[xlow, xhigh], [ylow, yhigh]].')
         print('Setting defaults.')
         oplot_limits = defaults
     else:
         pass
     return oplot_limits
+
+
+# Check for valid red noise model type (ar1 or power law)
+def check_red_noise_type(red_type):
+    valid = (red_type == 'ar1') or (red_type == 'powerlaw')
+    if not valid:
+        print('Invalid red noise model type. Defaulting to ar1.')
+        red_type = 'ar1'
+    return red_type

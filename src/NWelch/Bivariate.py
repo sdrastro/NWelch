@@ -87,7 +87,8 @@ class Bivariate:
 # ***Return the boundaries of the Welch's segments and the effective number of
 #    segments (useful if they are computed automatically by NWelch)***
     def get_segments(self):
-        if not check_segmented(self.segmented)):
+        if not check_segmented(self.segmented):
+            print('Not segmented!')
             return
         return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
         
@@ -219,9 +220,10 @@ class Bivariate:
         #    Rodri'guez-Tovar (2012)
         if not check_coherence(self.coh):
             return
-        N_coh_bootstrap = check_bootstrap(N_coh_bootstrap)
-        if N_coh_bootstrap <= 100:
+        N_coh_bootstrap = check_bootstrap(N_coh_bootstrap, quiet=False)
+        if N_coh_bootstrap < 100:
             return
+        self.N_coh_bootstrap = N_coh_bootstrap
 
         save_noise = check_Bool(save_noise, False)
         print_crossings = check_Bool(print_crossings, False)
@@ -253,10 +255,10 @@ class Bivariate:
         ncrossingsperR_boot_01 = np.zeros(N_coh_bootstrap)
 
         indices = range(self.x_series.N)
-        samples = bootstrap(indices, b=2*N_coh_bootstrap)
+        samples = bootstrap(indices, b=2*self.N_coh_bootstrap)
 
         # Start the loop
-        for i in range(N_coh_bootstrap):
+        for i in range(self.N_coh_bootstrap):
             if (i % 500 == 0):
                 print("Iteration", i)
             perm = samples[2*i, :]

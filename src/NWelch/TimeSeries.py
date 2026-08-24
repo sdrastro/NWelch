@@ -108,6 +108,10 @@ class TimeSeries:
 
     # ***Histogram of timesteps dt = t[i] - t[i-1]***
     def dthist(self, nbins=10):
+        # Make sure nbins keyword is an integer > 0
+        if not isinstance(nbins, int) or (nbins <= 0):
+            print('nbins must be integer >= 0. Defaulting to 10.')
+            nbins = 10
         # Set nbins keyword to change the number of bins in the histogram
         try:
             n_dt_unique = len(np.unique(self.dt))
@@ -186,7 +190,10 @@ class TimeSeries:
 
         # Check for valid trend type
         trend_type = trend_check(trend_type)
-        
+
+        # Check for valid N_bootstrap
+        N_bootstrap = check_bootstrap(N_bootstrap, quiet)
+
         # Center data by subtracting off mean
         datamean = np.mean(self.obs)
         data = self.obs - datamean
@@ -225,28 +232,28 @@ class TimeSeries:
             self.power *= norm
         
         # Bootstrap for false alarm thresholds
-        N_bootstrap = check_bootstrap(N_bootstrap)
         self.N_bootstrap = N_bootstrap
         highest_peaks = np.zeros(N_bootstrap)
 
-        # Generator function for resampling
-        samples = bootstrap(detrended_data, b=N_bootstrap)
-        for i in range(N_bootstrap):
-            if (i % 500 == 0):
-                print("Iteration", i)
-            sample = samples[i, :]
-            # Use the same windowing scheme as in the original FT / power spectrum
-            sample = sample * self.win_coeffs
-            sample_ft = nfft(self.t, sample, self.fgrid)
-            highest_peaks[i] = np.max(norm * np.abs(sample_ft)**2)
-        self.false_alarm_5 = np.quantile(highest_peaks, 0.95)
-        self.false_alarm_1 = np.quantile(highest_peaks, 0.99)
-        if (self.N_bootstrap >= 10000):
-            self.false_alarm_01 = np.quantile(highest_peaks, 0.999)
-        if save_noise:
-            self.frequency_domain_noise = highest_peaks
-        else:
-            self.frequency_domain_noise = None
+        # Bootstrap
+        if self.N_bootstrap >= 100:
+            samples = bootstrap(detrended_data, b=N_bootstrap)
+            for i in range(N_bootstrap):
+                if (i % 500 == 0):
+                    print("Iteration", i)
+                sample = samples[i, :]
+                # Use the same windowing scheme as in the original FT / power spectrum
+                sample = sample * self.win_coeffs
+                sample_ft = nfft(self.t, sample, self.fgrid)
+                highest_peaks[i] = np.max(norm * np.abs(sample_ft)**2)
+            self.false_alarm_5 = np.quantile(highest_peaks, 0.95)
+            self.false_alarm_1 = np.quantile(highest_peaks, 0.99)
+            if (self.N_bootstrap >= 10000):
+                self.false_alarm_01 = np.quantile(highest_peaks, 0.999)
+            if save_noise:
+                self.frequency_domain_noise = highest_peaks
+            else:
+                self.frequency_domain_noise = None
             
             
     # ***Return the (possibly windowed) periodogram as a dictionary of 
