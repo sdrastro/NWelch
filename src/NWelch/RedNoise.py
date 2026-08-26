@@ -8,8 +8,8 @@ def ar1spec(frequency, phi, sigma):
     
 
 # Power law spectrum
-def plspec(frequency, exponent, coeff):
-    return np.exp(exponent * np.log(frequency) + coeff)
+def plspec(frequency, exponent, logcoeff):
+    return np.exp(exponent * np.log(frequency) + logcoeff)
     
 
 # Whittle likelihood for AR(1)
@@ -68,7 +68,7 @@ def model_fit(fgrid, specest, guess_pars, plot_fit=True,
         else:
             print("----------- Power law FITTING RESULTS ----------")
             print("Exponent = %0.2f"%(estspec_wnll.x[0]))
-            print("Coefficient = %0.2f"%(estspec_wnll.x[1]))
+            print("Coefficient = %0.2f"%(np.exp(estspec_wnll.x[1])))
         print("Whittle NLL = %0.2f"%(estspec_wnll.fun))
 
     # Plot best-fit model
@@ -237,16 +237,50 @@ def choose_noise_model(fgrid, specest,
         print('Best-fit model: ' + model_type)
 
     return model_type
+    # Done
 
 
-def gen_spectrum_realizations():
+def gen_spectrum_realizations(time, obs, err, segs, Nyquist=0.5, 
+                              oversample=4, red_noise_type='ar1', num=1000):
+    num = check_bootstrap(num)
+    red_noise_type = check_red_noise_type(red_noise_type)
+    if red_noise_type == 'ar1':
+        generator = _gen_ar1
+    else:
+        generator = _gen_pl
+    if (num < 100):
+        print('Must set num >= 100 to run Monte Carlo')
+        return
+    Nf = len(fgrid)
+    speciters = np.array((num, Nf))
+    wnlls = np.array(num)
+    for i in range(num):
+        speciters[i, :] = generator()
+    
 
 
 # Generate an ar1 realization in the time domain
-def gen_ar1():
+def _gen_ar1(time, phi, sigma):
+    dt = np.diff(time)
+    N = len(time)
+    zeta = np.random.randn(N)
+    ar1real = np.zeros(N)
+    ar1real[0] = zeta[0]
+    for i in range(N-1):
+        ar1real[i+1] = phi**dt[i] * ar1real[i] + zeta[i]
+    return ar1real
 
 
 # Generate a realization from a known power-law spectrum
 #   in the time domain
-def gen_pl():
+def _gen_pl(time, expt, logcoeff, fgrid):
+    N = len(time)
+    Delta_f = fgrid[1] - fgrid[0]
+    specmodel = plspec(fgrid, expt, logcoeff)
+    randphases = 2*np.pi * np.random.random(N)
+    plreal = np.zeros(N)
+    for i in range(N):
+        plreal[i] = np.sum(np.sqrt(specmodel * 2*np.pi*Delta_f) * \
+           np.cos(2*np.pi * fgrid * time[i] + randphases[i]))
+    return plreal
     
