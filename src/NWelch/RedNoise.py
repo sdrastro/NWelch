@@ -2,6 +2,10 @@ import numpy as np
 from scipy.optimize import minimize
 from NWelch.input_checks import *
 
+# Default model parameter guesses
+ar1_param_guesses=[0.7, 1]
+pl_param_guesses=[-1.2, 0.1]
+
 # AR(1) power spectrum
 def ar1spec(frequency, phi, sigma):
     return (sigma**2) / (1 - 2*phi*np.cos(2*np.pi*frequency) + phi**2)
@@ -26,18 +30,23 @@ def wnll_powerlaw(params, frequency, specest):
 
 # Find best-fit noise model 
 def model_fit(fgrid, specest, guess_pars, plot_fit=True, 
-              model_type='ar1', plot_objective=True,
+              red_noise_type='ar1', plot_objective=True,
               oplot_limits=np.array([[0.001, 1], [0.5, 1.5]]),
               print_result=True, method='Nelder-Mead', tol=1e-8):
 
     # Keyword checks
-    model_type = check_red_model_type(model_type)
+    red_noise_type = check_red_model_type(red_noise_type)
     plot_fit = check_Bool(plot_fit, True)
     plot_objective = check_Bool(plot_objective, True)
     print_result = check_Bool(display_result, True)
     method = minimize_method_check(method)
     tol = check_tol(tol)
     oplot_limits = _check_oplot_limits(oplot_limits, model_type)
+    if not check_param_guesses(guess_pars):
+        if red_noise_type == 'ar1':
+            guess_pars = ar1_param_guesses
+        else:
+            guess_pars = pl_param_guesses
 
     # Define minimization bounds
     bnds_ar1 = ((-1, 1), (0, None))
@@ -189,8 +198,7 @@ def _plot_objective(fgrid, specest, red_noise_type, objective_values, oplot_limi
 #   Users can also generate full distributions, visually examine them,
 #     and choose their favorite model
 def choose_noise_model(fgrid, specest,
-                       ar1_param_guesses=[0.7, 1],
-                       pl_param_guesses=[-1.2, 0.1],
+
                        method='Nelder-Mead', tol=1e-8,
                        plot=True, print_result=True,
                        oplot_limits_ar1=None,
@@ -207,14 +215,14 @@ def choose_noise_model(fgrid, specest,
             model_fit(fgrid, specest, ar1_param_guesses, 
                       plot_fit=plot, plot_objective=plot,
                       print_result=print_result,
-                      model_type='ar1', method=method, 
+                      red_noise_type='ar1', method=method, 
                       tol=tol)
 
     pl_nll, pl_pars, pl_estspec = 
             model_fit(fgrid, specest, pl_param_guesses, 
                       plot_fit=plot, plot_objective=plot,
                       print_result=print_result, 
-                      model_type='powerlaw', method=method, 
+                      red_noise_type='powerlaw', method=method, 
                       tol=tol)
 
     if plot:
@@ -240,24 +248,81 @@ def choose_noise_model(fgrid, specest,
     # Done
 
 
-def gen_spectrum_realizations(time, obs, err, segs, Nyquist=0.5, 
-                              oversample=4, red_noise_type='ar1', num=1000):
+def nll_distribution(time, obs, err, segs, num=1000, Nyquist=0.5, 
+                     window='None', oversample=4, trend=True, 
+                     trend_type='linear', combine_mode='mean', 
+                     red_noise_type='ar1', minimize_method='Nelder-Mead', 
+                     tol=1e-8, guess_pars=ar1_param_guesses, 
+                     start_gridpoint=1, plot_distribution=True):
+
+    # Input checks
     num = check_bootstrap(num)
-    red_noise_type = check_red_noise_type(red_noise_type)
-    if red_noise_type == 'ar1':
-        generator = _gen_ar1
-    else:
-        generator = _gen_pl
     if (num < 100):
         print('Must set num >= 100 to run Monte Carlo')
         return
+    red_noise_type = check_red_noise_type(red_noise_type)
+    detrend = check_Bool(detrend, True)
+    trend_type = trend_check(trend_type)
+    minimize_method = minimize_method_check(minimize_method)
+    tol = check_tol(tol)
+    valid_Welch = check_nyquist(Nyquist) and check_oversample(oversample) 
+    if not valid_Welch:
+        return
+    if (not isinstance(start_gridpoint, int)) or (start_gridpoint < 0) \
+           or (start_gridpoint >= 500):
+        print('Invalid start gridpoint. Must be integer >=0 and <= 500. Defaulting to 1.')
+        start_gridpoint = 1
+    if not check_param_guesses(guess_pars):
+        if red_noise_type == 'ar1':
+            guess_pars = ar1_param_guesses
+        else:
+            guess_pars = pl_param_guesses
+
+    # Make a TimeSeries object with the actual observations in order to check
+    #   for valid segmentation scheme and successful power spectrum estimate
+    base_ts = TimeSeries(time, obs)
+    base_ts.segment_data(segs, Nyquist, oversample=oversample, window=window,
+                         plot_windows=False, quiet=True)
+    if not base_ts.segmented:
+        return
+    base_ts.Welch_powspec(trend=trend, trend_type=trend_type, mode=combine_mode)
+    if base_ts.Welch_pow == None:
+        return
+
+    # Now perform the Monte Carlo
+    N = len(time)
     Nf = len(fgrid)
     speciters = np.array((num, Nf))
+    bfpars = np.array((num, 2))
     wnlls = np.array(num)
     for i in range(num):
-        speciters[i, :] = generator()
-    
+        obsMC = obs + np.random.randn(N) * err
+        ts = TimeSeries(time, obsMC)
+        ts.segment_data(segs, Nyquist, oversample=oversample, window=window,
+                        plot_windows=False, quiet=True)
+        ts.Welch_powspec(trend=trend, trend_type=trend_type, mode=combine_mode)
+        Wspec = ts.get_Welch()
+        speciters[i, :] = Wspec['Welch_power']
+        wnll, pars, _ = model_fit(Wspec['frequency'][start_gridpoint:], 
+                                  Wspec['Welch_power'][start_gridpoint:], 
+                                  guess_pars, plot_fit=False, 
+                                  red_noise_type=red_noise_type, plot_objective=False,
+                                  print_result=False, minimize_method=minimize_method, 
+                                  tol=tol)
+        wnlls[i] = wnll
+        bfpars[i, :] = pars
+        # Finished with Monte Carlo
 
+        # Plot the NLL distribution
+        if plot_distribution:
+            plt.hist(wnlls, color='mediumseagreen', alpha=0.7)
+            plt.xlabel('Whittle NLL')
+            plt.ylabel('Number of trials')
+            plt.title(red_noise_type + ' model')
+            plt.grid(color='0.85')
+
+        return wnlls, bfpars
+    
 
 # Generate an ar1 realization in the time domain
 def _gen_ar1(time, phi, sigma):
