@@ -15,15 +15,30 @@ plt.rcParams.update({"font.size":16, "axes.labelsize":16, "font.family":"sans-se
 # Utility functions for methods in TimeSeries class
 # -------------------------------------------------
 
-# ***Non-uniform FFT***
-# time: observation times
-# data: observed data
-# freqs: desired frequency grid
-nfft = lambda time, data, freqs: nufft1d3(2*np.pi*time, data, freqs, isign=-1, nthreads=1)
 
-# ***Minimum 4-term Blackman-Harris window***
-# time: observation times
+def nfft(time, data, freqs):
+    """Calculate non-uniform FFT of time series.
+
+    Args:
+        time (ndarray): observation times.
+        data (ndarray): observed data.
+        freqs (ndarray): desired frequency grid.
+
+    Returns:
+        non-uniform FFT of time series.
+    """
+    return nufft1d3(2*np.pi*time, data, freqs, isign=-1, nthreads=1)
+
+
 def BlackmanHarris(time):
+    """Construct minimum 4-term Blackman-Harris window.
+
+    Args:
+        time (ndarray): observation times.
+
+    Returns:
+        ndarray: minimum 4-term Blackman-Harris window on observation timestamps.
+    """
     N = len(time)
     fac = N / (N-1)
     tfrac = time / time[-1] # equivalent to n/N in evenly spaced case
@@ -32,10 +47,19 @@ def BlackmanHarris(time):
     norm = N / np.sum(window**2) # Normalization from Schulz & Stattegger (1997)
     return np.sqrt(window**2 * norm)
 
-# ***Kaiser-Bessel window (delivers high dynamic range)***
-# time: observation times
-# alpha: window width parameter (high alpha -> high dynamic range, but wide main lobe)
+
 def KaiserBessel(time, alpha=3):
+    """Calculate Kaiser-Bessel window.
+
+    Args:
+        time (ndarray): observation times.
+
+    Kwargs:
+        alpha (int/float): Window width parameter.
+
+    Returns:
+        ndarray: Kaiser-Bessel window on observation timestamps.
+    """
     tscale = time / time[-1]
     arg_denominator = np.pi*alpha
     arg_numerator = arg_denominator * np.sqrt(1. - (2*tscale - 1.)**2)
@@ -44,10 +68,26 @@ def KaiserBessel(time, alpha=3):
 
 # ***TimeSeries class: Methods for handling a single time series***
 class TimeSeries:
+    """Methods for estimating and plotting power spectra of unevenly sampled time series."""
     
 
     # *** Constructor***
     def __init__(self, t, obs, display_frequency_info=True):
+        """Construct TimeSeries object.
+
+        Args:
+           t (ndarray): observation timestamps.
+           obs (ndarray): observed data.
+
+        Kwargs:
+           display_frequency_info (Bool): display Nyquist-like and Rayleigh frequency estimates.
+
+        Returns:
+            TimeSeries.
+
+        Raises:
+            ValueError.
+        """
         # t: vector of observation times
         # obs: vector of observed data (i.e. RV, S-index, H-alpha)
         # display_frequency_info: if true, print out various
@@ -91,10 +131,13 @@ class TimeSeries:
             print("Rayleigh resolution:", f"{self.Rayleigh:.5f}")
             
 
-    # ***Scatter plot of the time series***
-    def scatterplot(self, xlabel="Time", ylabel="Data"): 
-        # Use keywords xlabel and ylabel to change the default
-        #     axis labels
+    def scatterplot(self, xlabel="Time", ylabel="Data"):
+        """Scatter plot of the time series.
+
+        Kwargs:
+            xlabel (str): label for x-axis.
+            ylabel (str): label for y-axis.
+        """
         plt.figure(figsize=(7,5))
         plt.scatter(self.t, self.obs.real, color='k', edgecolor='k', alpha=0.6)
         if not check_string(xlabel):
@@ -106,8 +149,12 @@ class TimeSeries:
         plt.grid(color='0.85')
         
 
-    # ***Histogram of timesteps dt = t[i] - t[i-1]***
     def dthist(self, nbins=10):
+        """Plot histogram of timesteps dt = t[i] - t[i-1].
+
+        Kwargs:
+            nbins (int): number of bins in histogram.
+        """
         # Make sure nbins keyword is an integer > 0
         if not isinstance(nbins, int) or (nbins <= 0):
             print('nbins must be integer >= 0. Defaulting to 10.')
@@ -130,13 +177,24 @@ class TimeSeries:
         plt.grid(color='0.85')
 
 
-    # ***Compute frequency grid for Fourier transform and power spectrum***
-    def frequency_grid(self, Nyquist, oversample=4): 
-        # "Nyquist" frequency is defined by user. It can be one of the four possibilities 
-        #     computed when the time series object was constructed, or something else entirely.
-        # With the oversample keyword, the user can go above (or below) the Rayleigh resolution:
-        #     the frequency grid spacing is self.Rayleigh / oversample
+    def frequency_grid(self, Nyquist, oversample=4):
+        """Compute frequency grid for Fourier transform and power spectrum.
 
+        The Nyquist-like frequency can be one of the four possibilities 
+            computed when the time series object was constructed 
+            or something else entirely.
+            
+        The frequency grid spacing is self.Rayleigh / oversample.
+
+        Use get_periodogram() to return a dictionary containing the
+            frequency grid and NFFT (Lomb-Scargle-like) periodogram.
+
+        Args:
+            Nyquist (float): highest frequency in the grid.
+            
+        Kwargs:
+            oversample (int/float): number of gridpoints per Rayleigh resolution.
+        """
         # Check for valid Nyquist frequency
         if not check_Nyquist(Nyquist):
             return
@@ -158,18 +216,29 @@ class TimeSeries:
         self.powfgrid = self.fgrid[self.nf:]
         
         
-    # ***Compute a 1-dimensional, type 3, non-uniform Fourier transform,
-    #    plus the associated power spectrum and false alarm thresholds***
-    def pow_FT(self, window='None', trend=True, trend_type='linear', N_bootstrap=10000, norm=True, save_noise=False, quiet=False):
-        # window = 'BlackmanHarris' or 'KaiserBessel', or 'None': apply the selected non-rectangular taper before doing the Fourier transform; set to 'None' to keep the rectangular spectral window
-        # If trend == True, subtract out a trend before doing the Fourier transform
-        # trend_type: Type of trend to subtract; options are 'linear' and 'quadratic'
-        # N_bootstrap: number of bootstrap iterations used to find the false alarm thresholds
-        #     N_bootstrap < 100 will turn off bootstrap
-        # If norm == True, normalize the power spectrum using Parseval's theorem
-        # set save_noise=True to save the array containing highest peaks from the power 
-        #     spectra of the randomly shuffled data (useful if you want to examine the noise properties later)
-        # if quiet == True, message about bootstrap being off will not appear
+    def pow_FT(self, window='None', trend=True, trend_type='linear', 
+               N_bootstrap=10000, norm=True, save_noise=False, quiet=False):
+        """Compute a 1-dimensional, type 3, non-uniform Fourier transform,
+            plus the associated power spectrum and false alarm thresholds.
+
+        Kwargs:
+            window (str): 'BlackmanHarris' or 'KaiserBessel' or 'None' -
+                apply the selected non-rectangular taper before doing the 
+                Fourier transform; set to 'None' to keep the 
+                rectangular spectral window.
+            trend (Bool): If True, subtract out a trend before doing the Fourier transform.
+            trend_type (str): Type of trend to subtract; options are 'linear' and 'quadratic'.
+            N_bootstrap (int): number of bootstrap iterations used to find the white noise
+                false alarm thresholds; N_bootstrap < 100 will turn off bootstrap.
+            norm (Bool): If True, normalize the power spectrum using Parseval's theorem.
+            save_noise (Bool): If True, save the array containing highest peaks from 
+                the power spectra of the randomly shuffled data (useful if you want to 
+                examine the white noise properties later).
+            quiet (Bool): If True, message about bootstrap being off will not appear.
+
+        Raises:
+            ValueError.
+        """
         try:
             not_gridded = (self.fgrid is None)
             if not_gridded:
@@ -260,6 +329,7 @@ class TimeSeries:
     #    {'frequency', 'periodogram'} so user can work with it
     #    outside of NWelch***
     def get_periodogram(self):
+    """Return dictionary of frequency, periodogram."""
         computed = check_power(self.power)
         if not computed:
             return
@@ -272,6 +342,7 @@ class TimeSeries:
     #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
     #    about zero (includes negative frequencies).***
     def get_Fourier(self):
+    """Return dictionary of frequency, Fourier coefficients - negative frequencies included."""
         computed = check_power(self.power)
         if not computed:
             return
@@ -281,6 +352,7 @@ class TimeSeries:
     # ***Return the window coefficients as a dictionary of 
     #    {'window_type', 'coefficients'} so user can work with them outside of NWelch***
     def get_window(self):
+    """Return dictionary of frequency, spectral window - negative frequencies included."""
         computed = check_power(self.power)
         if not computed:
             return
@@ -288,22 +360,28 @@ class TimeSeries:
             
             
     # ***Break the time series into segments in preparation for Welch's algorithm***
-    def segment_data(self, seg, Nyquist, oversample=4, window='None', plot_windows=False, quiet=False):
-        # As above, Nyquist is the maximum frequency desired for the periodogram
-        # window is type of window to apply to each segment: 'None' or 'BlackmanHarris' or 'KaiserBessel'
-        # seg is either an integer that defines the number of 50% overlapping segments, or
-        #    a 2-d array-like giving the beginning and ending indices of each segment, i.e.
-        #    seg=5 or seg=np.array([[0, 151], [95, 220], [221, 385], [306, 443]]) 
-        #    such a segmenting scheme could be used to leave out one or more big gaps in the time series
-        # note: a segment defined as [0, 151] will actually include data points 0 through 150
-        #    since python's ranges don't include the final element 
-        #    (i.e. arr[0:4] = [arr[0], arr[1], arr[2], arr[3]] but arr[4] is left out)
+    def segment_data(self, seg, Nyquist, oversample=4, window='None', 
+                     plot_windows=False, quiet=False):
+        """break time series into segments for Welch's method.
 
-        # with quiet=False, the code will print out information about the resolution,
-        #     number of data points per segment, and effective number of independent segments.
-        #     It will also warn about Nyquist-like frequencies that may be too high and
-        #     segment overlapping.
-        #     Set quiet=True to turn off resolution/segment info and warnings.
+        Args:
+            seg (int/ndarray): integer number of segments to break time series into
+                OR 2-d ndarray with [start, stop] indices of each segment. If int,
+                NWelch will calculate boundaries of 50% overlapping segments.
+                Array example - np.array([[0, 151], [95, 220], [221, 385], [306, 443]]).
+            Nyquist (int/float): maximum frequency for power spectrum estimate.
+
+        Kwargs:
+            oversample (int/float): number of gridpoints per Rayleigh unit 
+                (equivalent to zero-padding factor for evenly sampled time series).
+            window (str): type of window to apply to each segment. Choices are None,
+                BlackmanHarris, or KaiserBessel.
+            plot_windows (Bool): if True, plot window coefficient as a function of
+                time index for each segment.
+            quiet (Bool): if False, print information about frequency resolution 
+                and effective number of segments, warnings about number of 
+                data points per segment and effective Nyquist frequency.
+        """
        
         # Check for valid Nyquist frequency
         if not check_Nyquist(Nyquist):
@@ -328,13 +406,9 @@ class TimeSeries:
         
         # Get the segment boundaries
         if type(seg) is int: # break into 50% overlapping segments
-            try:
-                valid_seg = (seg >= 2)
-                if not valid_seg:
-                    raise ValueError
-            except ValueError:
-                print("Number of segments must be >= 2 - no segmenting performed")
+            if not check_int_segments(seg):
                 return
+
             nperseg = int(2*self.N // (seg+1))
             try:
                 enough = (nperseg >= 29)
@@ -362,18 +436,7 @@ class TimeSeries:
                 c50 = c50_rectangle
             self.Nseg_eff = seg / (1 + 2*c50**2 - (2*c50**2 / seg))
         else:
-            try:
-                valid_seg = (isinstance(seg, np.ndarray) and (seg.ndim == 2) and \
-                            (seg.shape[1] == 2) and (np.issubdtype(seg[0,0], int)) \
-                             and (seg[-1,1] <= self.N))
-                if not valid_seg:
-                    raise TypeError
-            except TypeError:
-                print("Segment input format not understood. seg must be either integer")
-                print("number of segments >=2, or 2-d numpy array of integers, with each row")
-                print("giving the beginning and (end point + 1) of a segment,")
-                print("e.g. np.array([[0, 84], [65, 110], [93, 170]]).")
-                print("End of last segment must be <= length of time series.")
+            if not check_custom_segments(seg)
                 return
             segments = seg
             # Determine whether custom segments are overlapping or not
@@ -397,6 +460,7 @@ class TimeSeries:
                 self.Nseg_eff = segments.shape[0] / (1 + 2*c50**2 - (2*c50**2 / segments.shape[0]))
             else:
                 self.Nseg_eff = segments.shape[0]
+                
         self.segments = segments
         self.Nseg = segments.shape[0]
         
@@ -462,10 +526,10 @@ class TimeSeries:
         # Finish
         self.segmented = True
         
-        
-    # ***Return the boundaries of the Welch's segments and the effective number of
-    #    segments (useful if they are computed automatically by NWelch)***
+
     def get_segments(self):
+        """return dictionary of segment boundaries and effective number of segments."""
+        
         if not check_segmented(self.segmented):
             return
         return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}

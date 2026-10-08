@@ -127,6 +127,38 @@ def check_Nyquist(Nyquist):
     return valid_Nyquist
 
 
+def check_int_segments(seg):
+"""check for valid integer number of segments."""
+
+    try:
+        valid_seg = (seg >= 2)
+        if not valid_seg:
+            raise ValueError
+    except ValueError:
+        print("Number of segments must be >= 2 - no segmenting performed")
+        return False
+    return True
+
+
+def check_custom_segments(seg):
+    """check for valid custom segmentation format."""
+    
+    try:
+        valid_seg = (isinstance(seg, np.ndarray) and (seg.ndim == 2) and \
+                    (seg.shape[1] == 2) and (np.issubdtype(seg[0,0], int)) \
+                    and (seg[-1,1] <= self.N))
+        if not valid_seg:
+            raise TypeError
+    except TypeError:
+        print("Segment input format not understood. seg must be either integer")
+        print("number of segments >=2, or 2-d numpy array of integers, with each row")
+        print("giving the beginning and (end point + 1) of a segment,")
+        print("e.g. np.array([[0, 84], [65, 110], [93, 170]]).")
+        print("End of last segment must be <= length of time series.")
+        return False
+    return True     
+
+
 # Check validity of linear or log plot scale keyword
 def check_plot_scale(scale):
     valid_y = ((scale == 'log10') or (scale == 'linear'))
@@ -178,7 +210,7 @@ def check_tol(tol):
 
 
 # Check for valid 2-d objective plot limits (red noise fit)
-def _check_oplot_limits(oplot_limits, model_type):
+def check_oplot_limits(oplot_limits, model_type):
     defaults_pl = np.array([[-3, 0], [-3, 3]])
     defaults_ar1 = np.array([[0.001, 1], [0.5, 1.5]])
     if model_type == 'ar1':
@@ -214,7 +246,7 @@ def check_param_guesses(guesses):
         print(error_message)
         return False
     elif (len(guesses) != 2) or (type(guesses[0]) != float) \
-                  or type(guesses[1] != float)):
+                  or type(guesses[1] != float):
         print(error_message)
         return False
     else:
