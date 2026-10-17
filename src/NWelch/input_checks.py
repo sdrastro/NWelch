@@ -23,6 +23,41 @@ def minimize_method_check(minimize_method):
     return minimize_method
 
 
+def array_check(arr1, arr2, domain='time'):
+    """check that two ndarrays have the same length.
+    
+    Args:
+        arr1 (ndarray): first input array, either observation times or frequency grid.
+        arr2 (ndarray): second input array - data, errors, or power spectrum estimate.
+
+    Kwargs:
+        domain (str): choose time or frequency.
+
+    Returns:
+        bool.
+
+    Raises:
+        ValueError.
+    """
+    valid_domain = (domain == 'time') or (domain == 'frequency')
+    if not valid domain:
+        print("Domain choices are 'time' or 'frequency'. Defaulting to time.")
+        domain = 'time'
+    if domain == 'time':
+        message = 'Need equal numbers of time stamps, data points and error bars.'
+    else:
+        message = 'Frequency grid and power spectrum estimate must have equal length.'
+    try:
+        test = (len(arr1) == len(arr2))
+        if (not test):
+            raise ValueError
+    except ValueError:
+        print(message)
+        print("No object created")
+        return False
+    return True
+
+
 # Check for valid window type: Must be 'KaiserBessel',
 #   BlackmanHarris', or 'None'
 def window_check(window):

@@ -75,6 +75,11 @@ class TimeSeries:
     def __init__(self, t, obs, display_frequency_info=True):
         """Construct TimeSeries object.
 
+        By default, power spectrum false alarm thresholds are computed using 
+        a white noise model. If you want red noise-based FALs, run a RedNoise 
+        module workflow after a spectrum estimate has been computed. See
+        :class:`RedNoise documentation <NWelch.RedNoise>` for more information.
+
         Args:
            t (ndarray): observation timestamps.
            obs (ndarray): observed data.
@@ -82,16 +87,29 @@ class TimeSeries:
         Kwargs:
            display_frequency_info (Bool): display Nyquist-like and Rayleigh frequency estimates.
 
-        Returns:
-            TimeSeries.
-
+        Attributes:
+           t (ndarray): observation timestamps.
+           obs (ndarray): observed data.
+           N (int): number of observations.
+           dt (ndarray): timesteps between observations.
+           Nyq_meandt (float): Nyquist-like frequency approximated from mean(dt).
+           Nyq_tmeandt_10 (float): Nyquist-like frequency approximated 
+               from 10% trimmed mean(dt).
+           Nyq_tmeandt_20 (float): Nyquist-like frequency approximated 
+               from 20% trimmed mean(dt).
+           Nyq_meddt (float): Nyquist-like frequency approximated from median(dt).
+           Rayleigh (float): Rayleigh resolution determined from 1/(time series duration).
+           fgrid (ndarray/None): frequency grid array. Includes 0 and negative frequencies.
+           ft (ndarray/None): complex-valued Fourier transform of time series.
+           power (ndarray/None): Lomb-Scargle-like power spectrum estimate.
+           Welch_pow (ndarray/None): Welch's power spectrum estimate.
+           segmented (bool): if True, Welch's data segments have been defined.
+           N_Welch_bootstrap (int): number of bootstrap iteration for Welch's
+               white noise false alarm levels.
+           
         Raises:
-            ValueError.
+            ValueError: if obs and t arrays don't have same length.
         """
-        # t: vector of observation times
-        # obs: vector of observed data (i.e. RV, S-index, H-alpha)
-        # display_frequency_info: if true, print out various
-        # estimates of the Nyquist-like frequency and Rayleigh resolution
         try:
             test = (len(t) == len(obs))
             if (not test):
@@ -177,7 +195,7 @@ class TimeSeries:
         plt.grid(color='0.85')
 
 
-    def frequency_grid(self, Nyquist, oversample=4):
+    def frequency_grid(self, Nyquist, oversample=4, quiet=False):
         """Compute frequency grid for Fourier transform and power spectrum.
 
         The Nyquist-like frequency can be one of the four possibilities 
@@ -186,14 +204,20 @@ class TimeSeries:
             
         The frequency grid spacing is self.Rayleigh / oversample.
 
-        Use get_periodogram() to return a dictionary containing the
-            frequency grid and NFFT (Lomb-Scargle-like) periodogram.
+        Use get_periodogram() to return a dictionary containing the grid of
+        non-negative frequencies and the NFFT (Lomb-Scargle-like) periodogram.
 
         Args:
             Nyquist (float): highest frequency in the grid.
             
         Kwargs:
             oversample (int/float): number of gridpoints per Rayleigh resolution.
+            quiet (bool): if True, don't print out warning about Nyquist frequency.
+                Default False.
+
+        Raises:
+            ValueError: if Nyquist is not a float > 0.
+            ValueError: if oversample is not a positive float or int.
         """
         # Check for valid Nyquist frequency
         if not check_Nyquist(Nyquist):
@@ -207,37 +231,39 @@ class TimeSeries:
         self.nf = int(Nyquist // df) # Number of POSITIVE (non-zero) frequencies in the grid
         if (self.nf % 2) != 0: # make sure zero frequency is included
             self.nf += 1
-        if (Nyquist > self.Nyq_meddt):
-            print("Warning: your requested Nyquist frequency is higher than the Nyquist")
-            print("frequency associated with the median timestep. Make sure that makes")
-            print("sense for your dataset.")
+        if not quiet:
+            if (Nyquist > self.Nyq_meddt):
+                print("Warning: your requested Nyquist frequency is higher than")
+                print("the Nyquist frequency associated with the median timestep.")
+                print("Make sure that makes sense for your dataset.")
         self.fgrid = np.linspace(-Nyquist, Nyquist, num=2*self.nf+1, endpoint=True)
-        # print(self.fgrid)
         self.powfgrid = self.fgrid[self.nf:]
         
         
     def pow_FT(self, window='None', trend=True, trend_type='linear', 
                N_bootstrap=10000, norm=True, save_noise=False, quiet=False):
-        """Compute a 1-dimensional, type 3, non-uniform Fourier transform,
-            plus the associated power spectrum and false alarm thresholds.
+        """Compute a 1-dimensional, type 3 non-uniform FFT and power spectrum.
 
+        Optionally, compute bootstrap false alarm levels under assumption
+        of white noise. For red noise false alarm levels, see 
+        :class:`RedNoise documentation <NWelch.RedNoise>`.
+        
         Kwargs:
-            window (str): 'BlackmanHarris' or 'KaiserBessel' or 'None' -
-                apply the selected non-rectangular taper before doing the 
-                Fourier transform; set to 'None' to keep the 
-                rectangular spectral window.
-            trend (Bool): If True, subtract out a trend before doing the Fourier transform.
-            trend_type (str): Type of trend to subtract; options are 'linear' and 'quadratic'.
+            window (str): 'BlackmanHarris' or 'KaiserBessel' or 'None' - apply the selected 
+                non-rectangular taper before doing the Fourier transform; set to 'None' 
+                to keep the rectangular spectral window.
+            trend (Bool): if True, subtract out a trend before doing the Fourier transform.
+            trend_type (str): type of trend to subtract; options are 'linear' and 'quadratic'.
             N_bootstrap (int): number of bootstrap iterations used to find the white noise
                 false alarm thresholds; N_bootstrap < 100 will turn off bootstrap.
-            norm (Bool): If True, normalize the power spectrum using Parseval's theorem.
-            save_noise (Bool): If True, save the array containing highest peaks from 
+            norm (Bool): if True, normalize the power spectrum using Parseval's theorem.
+            save_noise (Bool): if True, save the array containing highest peaks from 
                 the power spectra of the randomly shuffled data (useful if you want to 
                 examine the white noise properties later).
-            quiet (Bool): If True, message about bootstrap being off will not appear.
+            quiet (Bool): if True, message about bootstrap being off will not appear.
 
         Raises:
-            ValueError.
+            ValueError: if valid frequency grid has not been calculated.
         """
         try:
             not_gridded = (self.fgrid is None)
@@ -325,9 +351,6 @@ class TimeSeries:
                 self.frequency_domain_noise = None
             
             
-    # ***Return the (possibly windowed) periodogram as a dictionary of 
-    #    {'frequency', 'periodogram'} so user can work with it
-    #    outside of NWelch***
     def get_periodogram(self):
     """Return dictionary of frequency, periodogram."""
         computed = check_power(self.power)
@@ -336,11 +359,6 @@ class TimeSeries:
         return {'frequency': self.powfgrid, 'periodogram': self.power}
     
     
-    # ***Return the (possibly windowed) Fourier coefficients computed for the STANDARD
-    #    (non-Welch) periodogram as a dictionary of 
-    #    {'frequency_symmetric', 'Fourier_coeffs'} 
-    #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
-    #    about zero (includes negative frequencies).***
     def get_Fourier(self):
     """Return dictionary of frequency, Fourier coefficients - negative frequencies included."""
         computed = check_power(self.power)
@@ -349,8 +367,6 @@ class TimeSeries:
         return {'frequency_symmetric':self.fgrid, 'Fourier_coeffs':self.ft}
     
     
-    # ***Return the window coefficients as a dictionary of 
-    #    {'window_type', 'coefficients'} so user can work with them outside of NWelch***
     def get_window(self):
     """Return dictionary of frequency, spectral window - negative frequencies included."""
         computed = check_power(self.power)
@@ -359,10 +375,12 @@ class TimeSeries:
         return {'window_type': self.window, 'coefficients': self.win_coeffs}
             
             
-    # ***Break the time series into segments in preparation for Welch's algorithm***
     def segment_data(self, seg, Nyquist, oversample=4, window='None', 
                      plot_windows=False, quiet=False):
         """break time series into segments for Welch's method.
+
+        Results are stored in class variable self.segments. Use get_segments()
+        to return them.
 
         Args:
             seg (int/ndarray): integer number of segments to break time series into
@@ -447,7 +465,8 @@ class TimeSeries:
                     overlap=True
                     if not quiet:
                         print("Segment overlap detected - assuming 50% overlap")
-                        print("If your segment overlap is far from 50%, consider defining non-overlapping segments")
+                        print("If your segment overlap is far from 50%, consider")
+                        print("defining non-overlapping segments.")
                     break
                 i += 1
             if overlap:
@@ -457,7 +476,8 @@ class TimeSeries:
                     c50 = c50_Kaiser
                 else:
                     c50 = c50_rectangle
-                self.Nseg_eff = segments.shape[0] / (1 + 2*c50**2 - (2*c50**2 / segments.shape[0]))
+                self.Nseg_eff = segments.shape[0] / \
+                    (1 + 2*c50**2 - (2*c50**2 / segments.shape[0]))
             else:
                 self.Nseg_eff = segments.shape[0]
                 
@@ -535,18 +555,21 @@ class TimeSeries:
         return {'segment_bounds':self.segments, 'effective_number':self.Nseg_eff}
                             
                             
-    # ***Perform a SINGLE Welch's power spectrum estimate***
-    #    Use it either on the actual data, or on a scrambled dataset as part
-    #      of bootstrap false alarm probability assessment
     def Welch_powspec(self, trend=True, trend_type='linear', norm=True, mode='mean'):
-        # set trend=True to detrend data is as in TimeSeries.pow_FT(), choose trend type
-        # set norm=True to use Parseval's theorem to get the power spectral density normalization
-        # set norm=False if normalization doesn't matter, or will take place in a different part
-        #    of the code
-        # Default mode='mean' computes the Welch's power spectrum
-        #    estimate by averaging individual segment estimates;
-        #    mode='median' uses median of the segment estimates
+        """calculate the Welch's power spectrum estimate.
+        
+        Use it either on the actual data, or on a scrambled dataset as part
+        of bootstrap false alarm probability assessment. Result is stored
+        in class variable self.Welch_pow.
 
+        Kwargs:
+            trend (bool): if True, detrend each segment before estimating power spectrum.
+            norm (bool): if True, use Parseval's theorem to get the power 
+                spectral density normalization. Set norm=False if normalization 
+                doesn't matter, or will take place in a different part of the code.
+            mode (str): how to combine power spectrum estimates from segments.
+                Choose 'mean' or 'median'.
+        """
         if not check_segmented(self.segmented):
             return
         
@@ -612,25 +635,32 @@ class TimeSeries:
             self.Welch_pow *= xnorm
         # Done
         
-        
-    # ***Return the Welch's power spectrum estimate as dictionary of
-    #    {'frequency', 'Welch_power'}***
+
     def get_Welch(self):
+        """return Welch's power spectrum estimate dictionary of frequency, Welch_power."""
         computed = check_Welch_power(self.Welch_pow)
         if not computed:
             return
         return {'frequency':self.Welch_powgrid, 'Welch_power':self.Welch_pow}
                             
                             
-    # ***Assuming white noise, use bootstrap to calculate
-    #    false-alarm thresholds for the Welch's periodogram***
     def Welch_powspec_bootstrap(self, N_Welch_bootstrap=10000, save_noise=False):
-        # N_Welch_bootstrap is the number of bootstrap iterations for the false alarm threshold
-        #    computation; set to a number <100 to turn off the bootstrap
-        # set save_noise=True to save the array containing coherences of the randomly 
-        #    shuffled data (useful if you want to examine the noise properties later)
-        # White noise bootstrap implemented here is similar to Pardo-Igu'zquiza and 
-        #    Rodri'guez-Tovar (2012)
+        """calculate bootstrap false alarm levels for Welch's power spectrum.
+
+        Bootstrap methodology implemented here is similar to Pardo-Iguzquiza and 
+        Rodriguez-Tovar (2012). Assumes white noise. For red noise false alarm
+        levels, see :class:`RedNoise documentation <NWelch.RedNoise>`.
+
+        Results are stored in self.Welch_false_alarm_5, self.Welch_false_alarm_1,
+        and (optionally) self.Welch_false_alarm_01.
+
+        Kwargs:
+            N_Welch_bootstrap (int): number of bootstrap iterations. 
+                Must be >= 100 to run bootstrap.
+            save_noise (bool): if True, save the array containing power spectra of 
+                the randomly shuffled data (useful if you want to examine the noise 
+                properties outside of NWelch). Default False.
+        """
 
         # Make sure the Welch's power spectrum estimate has been computed
         computed = check_Welch_power(self.Welch_pow)
@@ -676,18 +706,23 @@ class TimeSeries:
         self.obs = obs_original
         self.Welch_pow = Welch_pow_original
         
-                            
-    # *** Perform Siegel's test (1980) for periodicity***
-    # By searching for excess power above a test statistic g_crit, the test can
-    #    diagnose departures from a white-noise periodogram featuring up to 
-    #    3 periodic signals - good for rotation + harmonic(s)
-    # Set Welch=False to apply Siegel's test to the standard, single-window
-    #    Lomb-Scargle-like periodogram; toggle Welch=True to apply it to Welch's
-    #    periodogram
-    # Set tri=True to search for up to 3 periodic signals; default is tri=False
-    #    which is optimized to search for 2 (i.e. rotation and harmonic)
-    #    tri=True has higher risk of mistaking noise for periodicity than tri=False
+ 
     def Siegel_test(self, Welch=False, tri=False):
+        """perform Siegel's test (1980) for periodicity.
+
+        By searching for excess power above a test statistic g_crit, the test can
+        diagnose departures from a white-noise periodogram featuring up to 3 
+        periodic signals. Good for detecting star rotation + harmonic(s). The
+        g statistic threshold can be optimized for either 2 or 3 periodicities.
+
+        Kwargs:
+            Welch (bool): False to apply Siegel's test to the standard, 
+                single-window Lomb-Scargle-like periodogram; set 
+                Welch=True to apply it to Welch's power spectrum estimate.
+            tri (bool): if False, set conservative critical g value optimized
+                for detecting 2 periodicities. if True, set looser threshold
+                optimized for 3 periodicities. Default False.
+        """
 
         # Check for valid Boolean keywords
         Welch = check_Bool(Welch, False)
@@ -724,19 +759,32 @@ class TimeSeries:
 
         t_threshold = acoeff * numf**bcoeff
         print("T statistic:", f"{Tstat:.5f}")
-        print("T threshold for rejecting white noise hypothesis at 5% level:", f"{t_threshold:.5f}")
+        print("T threshold for rejecting white noise hypothesis at 5% level:",
+              f"{t_threshold:.5f}")
         if (Tstat > t_threshold):
-            print("Null hypothesis rejected: 95% chance this time series has 1 or more periodicities")
+            print("Null hypothesis rejected: 95% chance this time series has 1")
+            print("or more periodicities")
         if (Tstat < t_threshold):
-            print("Null hypothesis not rejected: This time series could be white noise (or red noise; beware)")
+            print("Null hypothesis not rejected: This time series could be white")
+            print("noise (or red noise; beware).")
                             
                             
-    # ***Calculate the non-Welch spectral window in the frequency domain***
-    #    "window function" in astronomer parlance
     def spectral_window(self, plot=True, yscale='log10', outfile="None"):
-        # Set plot=False to turn off plotting
-        # For y-axis scale, choices are 'log10' or 'linear'
-        # To save results, set the outfile keyword to the desired name of the output file
+        """calculate frequency-domain spectral window of standard non-Welch periodogram.
+
+        Optionally, plot the spectral window (window function in astronomical
+        jargon) and/or save it to a file. Result is also stored in class variable 
+        self.window_function.
+
+        Kwargs:
+            plot (bool): set to False to turn off plotting. Default True.
+            yscale (str): type of y-axis scale for plot. Choose 'log10' or 'linear'.
+            outfile (None/str): optional name of file to save spectral window.
+
+        Returns:
+            dict: contains symmetric frequency grid that includes negative 
+            frequencies and spectral window.        
+        """
 
         # Check that window and power spectrum estimate are computed
         if not check_power(self.power):
@@ -765,7 +813,7 @@ class TimeSeries:
             plt.grid(color='0.85')
 
         # Check outfile keyword
-        if (outfile == "None"):
+        if outfile is None:
             print("Single-window results not saved") 
         else:
             try:
@@ -774,8 +822,10 @@ class TimeSeries:
             except TypeError:
                 print("Bad output file name - no results saved")
 
-                return {'frequency_symmetric':self.fgrid, 'spectral_window':self.window_function}
-            header = "Spectral window\nMeasured half main lobe width: {}".format(bw) + "\nfrequency power"
+                return {'frequency_symmetric':self.fgrid, 
+                        'spectral_window':self.window_function}
+            header = "Spectral window\nMeasured half main lobe width: {}".format(bw) + \
+                     "\nfrequency power"
             np.savetxt(outfile, np.column_stack((self.fgrid, winfunc)), header=header)
             
         # ***Return the spectral window as a dictionary of 
@@ -786,11 +836,19 @@ class TimeSeries:
 
 
     # ***Calculate the spectral window of the Welch's estimator***
-    def spectral_window_Welch(self, plot=True, yscale='log10', outfile="None"):
-        # Compute the average spectral window of the Welch's estimator
-        # For y-axis scale, choices are 'log10' or 'linear'
-        # If plot=True, you will get a plot of the spectral window
-        # To save the spectral window, set outfile keyword to desired filename
+    def spectral_window_Welch(self, plot=True, yscale='log10', outfile=None):
+        """Compute average spectral window of Welch's power spectrum estimator.
+        
+        Kwargs:
+            plot (bool): if True, plot the spectral window.
+            yscale (str): y-axis scale for plot. Choose 'linear' or 'log10'.
+            outfile (None/str): set outfile keyword to desired filename if
+                you want to output the spectral window to a file.
+
+        Returns:
+            dict: dictionary with symmetric frequency grid (includes negative
+                frequencies), spectral window.
+        """
 
         # Check that the Welch's power spectrum estimate was computed
         if not check_Welch_power(self.Welch_pow):
@@ -849,13 +907,17 @@ class TimeSeries:
         #    {'frequency_symmetric', 'spectral_window'} 
         #    so user can work with it outside of NWelch. Note: frequency grid is symmetric 
         #    about zero (includes negative frequencies).
-        return {'frequency_symmetric':self.Welch_fgrid, 'spectral_window_Welch':self.Welch_window_function}
+        return {'frequency_symmetric':self.Welch_fgrid, 
+                'spectral_window_Welch':self.Welch_window_function}
     
 
-    # ***Plot the complex-valued Fourier transform***
     def Ftplot(self, vlines=[], lw=0.8):
-        # Use vlines keyword to add vertical lines to the plot
-        # Use lw keyword to change linewidth
+        """plot complex-valued Fourier transform that yields single-window periodogram.
+
+        Kwargs:
+            vlines (list): list of frequencies at which to place vertical lines on plot.
+            lw (int/float): line width for plot.
+        """
         if not check_power(self.power):
             return
         fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, figsize=(10,6))
@@ -875,14 +937,24 @@ class TimeSeries:
                       
         
     # ***Plot the power spectrum***
-    def powplot(self, show_thresholds=True, Welch=False, yscale='log10', title='', vlines=[], lw=0.8):
-        # Set show_thresholds=True to show bootstrap false alarm thresholds
-        # use title keyword to add a plot title
-        # set Welch=True to plot the Welch's power spectrum; default is to plot Lomb-Scargle-like periodogram
-        # choices for y-axis scale are 'log10' and 'linear'
-        # use vlines keyword to add vertical lines to the plot
-        # use lw keyword to change linewidth
-        # assumes white noise
+    def powplot(self, show_thresholds=True, red_noise=False, Welch=False, 
+                yscale='log10', title='', vlines=[], lw=0.8):
+        """plot a power spectrum estimate.
+
+        This function can be used for either the standard Lomb-Scargle-like
+        periodogram or the Welch's power spectrum estimate.
+        
+        Kwargs:
+            show_thresholds (bool): if True, show false alarm thresholds.
+            red_noise (bool): if True, false alarm thresholds shown will
+                be red noise-based; if False, use bootstrap white noise.
+            Welch (bool): if True, plot Welch's power spectrum estimate.
+                If false, plot Lomb-Scargle-like periodogram.
+            title (str): plot title.
+            yscale (str): y-axis scale. Choose 'log10' or 'linear'. Defaulte 'log10'.
+            vlines (list): list of frequencies at which to add vertical lines to plot.
+            lw (int/float): line width for plot.
+        """
 
         # Check that power spectrum estimate has been computed
         Welch = check_Bool(Welch, False)
@@ -940,9 +1012,16 @@ class TimeSeries:
         plt.grid(color='0.85')
             
             
-    # ***Save standard periodogram***
     def save_standard(self, filename):
-        # filename: name of results file
+        """Save Lomb-Scargle-like periodogram to specified filename.
+
+        File format is csv. The file also records the window type,
+        Nyquist-like frequency, Rayleigh resolution, whether the 
+        data were detrended, and bootstrap false alarm levels if computed.
+
+        Raises:
+            TypeError: if filename is not a valid string.
+        """
         
         # Check that periodogram has been computed
         if not check_power(self.power):
@@ -969,13 +1048,24 @@ class TimeSeries:
             if (self.N_bootstrap >= 10000):
                 header = header + "\n0.1% FAP (bootstrap): {}".format(self.false_alarm_01)
         header = header + "\nWindow applied: {}".format(self.window)
-        header = header + "\nfrequency,power"
+        header = header + "\nfrequency, power"
         output = np.column_stack((self.powfgrid, self.power))
         np.savetxt(filename, output, fmt='%.8e', delimiter=',', header=header)
 
 
-    # ***Save Welch's power spectrum estimate***
     def save_Welch(self, filename):
+        """Save Welch's power spectrum estimate to specified filename.
+
+        File format is csv. The file also records the Nyquist-like frequency,
+        Rayleigh resolution, 6 deciBel main lobe half width, actual number 
+        of segments, effective number of segments for statistics, segment start
+        and end points, whether the segments were detrended, type of trend 
+        subtracted, type of window applied to each segment, and number of
+        iterations in bootstrap false alarm level calculation (if applied).
+
+        Raises:
+            TypeError: if file name is not a valid string.
+        """
 
         if not check_Welch_power(self.Welch_pow):
             return
@@ -1004,6 +1094,6 @@ class TimeSeries:
                               "\n1% FAP (bootstrap): {}".format(self.Welch_false_alarm_1)
             if (self.N_Welch_bootstrap >= 10000):
                 header = header + "\n0.1% FAP (bootstrap): {}".format(self.Welch_false_alarm_01)
-        header = header + "\nfrequency,power"
+        header = header + "\nfrequency, power"
         output = np.column_stack((self.Welch_powgrid, self.Welch_pow))
         np.savetxt(filename, output, fmt='%.8e', delimiter=',', header=header)
